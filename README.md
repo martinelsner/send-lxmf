@@ -32,3 +32,8 @@ send-lxmf --destination <recipient_hex_hash> --identity ~/.reticulum/my_id < mes
 ```
 
 If no identity is provided, one will be created and stored automatically.
+
+## References
+
+- [Reticulum](https://reticulum.network/) — the cryptography-based networking stack
+- [LXMF](https://github.com/markqvist/LXMF) — Lightweight Extensible Message Format for Reticulum
