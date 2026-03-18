@@ -21,7 +21,7 @@ APP_NAME = "send_lxmf"
 TIMEOUT = 30  # seconds to wait for path / identity / delivery
 
 
-def _send_message(destination_hex, content, identity_path=None, display_name=None):
+def _send_message(destination_hex, content, identity_path=None, display_name=None, title="", prepend_title=False):
     """Send an LXMF message. Raises SystemExit on errors."""
     try:
         destination_hash = bytes.fromhex(destination_hex)
@@ -94,11 +94,15 @@ def _send_message(destination_hex, content, identity_path=None, display_name=Non
         "delivery",
     )
 
+    if prepend_title and title:
+        content = title + "\n\n" + content
+
     message = LXMF.LXMessage(
         destination,
         source,
         content,
-        title="",
+        title=title,
+        fields={LXMF.FIELD_RENDERER: LXMF.RENDERER_MARKDOWN},
         desired_method=LXMF.LXMessage.DIRECT,
     )
 
@@ -138,6 +142,8 @@ def main():
     parser.add_argument("--destination", required=True, help="Recipient LXMF address as hex hash")
     parser.add_argument("--identity", default=None, help="Path to a Reticulum identity file to use as sender")
     parser.add_argument("--display-name", default=None, help="Sender name to announce (visible to recipients)")
+    parser.add_argument("--title", default="", help="Message title (not shown by all clients)")
+    parser.add_argument("--prepend-title", action="store_true", help="Prepend the title to the message body, separated by a blank line")
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -151,6 +157,8 @@ def main():
         content=content,
         identity_path=args.identity,
         display_name=args.display_name,
+        title=args.title,
+        prepend_title=args.prepend_title,
     )
 
 

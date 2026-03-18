@@ -198,6 +198,8 @@ def _make_fake_lxmf():
     msg = mock.MagicMock()
     lxmf.LXMessage = mock.MagicMock(return_value=msg)
     lxmf.LXMessage.DIRECT = 0
+    lxmf.FIELD_RENDERER = 0x0F
+    lxmf.RENDERER_MARKDOWN = 0x02
     return lxmf
 
 

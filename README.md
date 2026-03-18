@@ -60,6 +60,25 @@ You can optionally specify a sender identity file:
 send-lxmf --destination <recipient_hex_hash> --identity ~/.reticulum/my_id < message.txt
 ```
 
+Set a display name so recipients see who sent the message:
+
+```bash
+echo "Hi" | send-lxmf --destination <recipient_hex_hash> --display-name "Alice"
+```
+
+Add a title to the message (shown by clients that support it, like NomadNet):
+
+```bash
+echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder"
+```
+
+Use `--prepend-title` to also include the title at the top of the message body,
+for clients that don't display the title field (like MeshChat):
+
+```bash
+echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder" --prepend-title
+```
+
 If no identity is provided, one will be created and stored automatically.
 
 ## Development Setup
