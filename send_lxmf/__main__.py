@@ -21,33 +21,23 @@ APP_NAME = "send_lxmf"
 TIMEOUT = 30  # seconds to wait for path / identity / delivery
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Send an LXMF message (content read from stdin).")
-    parser.add_argument("--destination", required=True, help="Recipient LXMF address as hex hash")
-    parser.add_argument("--identity", default=None, help="Path to a Reticulum identity file to use as sender")
-
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(0)
-
-    args = parser.parse_args()
-
+def _send_message(destination_hex, content, identity_path=None, display_name=None):
+    """Send an LXMF message. Raises SystemExit on errors."""
     try:
-        destination_hash = bytes.fromhex(args.destination)
+        destination_hash = bytes.fromhex(destination_hex)
     except ValueError:
-        print(f"Error: '{args.destination}' is not a valid hex hash.", file=sys.stderr)
+        print(f"Error: '{destination_hex}' is not a valid hex hash.", file=sys.stderr)
         sys.exit(1)
 
-    content = sys.stdin.read()
     if not content:
         print("Error: no message content provided on stdin.", file=sys.stderr)
         sys.exit(1)
 
     reticulum = RNS.Reticulum()
 
-    # Load sender identity from explicit path or fall back to app data dir
-    if args.identity:
-        identity_path = os.path.expanduser(args.identity)
+    # Load sender identity
+    if identity_path:
+        identity_path = os.path.expanduser(identity_path)
         if not os.path.isfile(identity_path):
             print(f"Error: identity file not found: {identity_path}", file=sys.stderr)
             sys.exit(1)
@@ -65,7 +55,10 @@ def main():
     data_dir = user_data_dir(APP_NAME, ensure_exists=True)
     storage_path = os.path.join(data_dir, "storage")
     router = LXMF.LXMRouter(identity=sender_identity, storagepath=storage_path)
-    source = router.register_delivery_identity(sender_identity, display_name="LXMF Sender")
+    source = router.register_delivery_identity(sender_identity, display_name=display_name)
+
+    if display_name:
+        router.announce(source.hash)
 
     RNS.log(f"Sender  : {RNS.prettyhexrep(source.hash)}")
     RNS.log(f"Target  : {RNS.prettyhexrep(destination_hash)}")
@@ -138,6 +131,27 @@ def main():
     else:
         print("Error: message delivery failed.", file=sys.stderr)
         sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Send an LXMF message (content read from stdin).")
+    parser.add_argument("--destination", required=True, help="Recipient LXMF address as hex hash")
+    parser.add_argument("--identity", default=None, help="Path to a Reticulum identity file to use as sender")
+    parser.add_argument("--display-name", default=None, help="Sender name to announce (visible to recipients)")
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
+    args = parser.parse_args()
+    content = sys.stdin.read()
+
+    _send_message(
+        destination_hex=args.destination,
+        content=content,
+        identity_path=args.identity,
+        display_name=args.display_name,
+    )
 
 
 if __name__ == "__main__":
