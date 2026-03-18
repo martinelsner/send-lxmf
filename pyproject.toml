@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "send-lxmf"
+version = "0.1.0"
+description = "Send LXMF messages from the command line"
+requires-python = ">=3.8"
+license = "MIT"
+readme = "README.md"
+authors = [
+    { name = "Your Name", email = "you@example.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "lxmf",
+    "platformdirs",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+send-lxmf = "send_lxmf.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/youruser/send-lxmf"
+Repository = "https://github.com/youruser/send-lxmf"

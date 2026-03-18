@@ -1,0 +1,230 @@
+"""Tests for send_lxmf.__main__.main()."""
+
+import io
+import sys
+import types
+from unittest import mock
+
+import pytest
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+
+def test_no_args_prints_help(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["send-lxmf"])
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 0
+    assert "usage" in capsys.readouterr().out.lower()
+
+
+def test_invalid_hex_exits_1(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", "not_hex"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 1
+    assert "not a valid hex" in capsys.readouterr().err
+
+
+def test_empty_stdin_exits_1(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(""))
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 1
+    assert "no message content" in capsys.readouterr().err.lower()
+
+
+def test_missing_identity_file_exits_1(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", [
+        "send-lxmf", "--destination", VALID_HEX,
+        "--identity", "/nonexistent/path/id",
+    ])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 1
+    assert "identity file not found" in capsys.readouterr().err.lower()
+
+
+def test_loads_identity_from_explicit_path(monkeypatch, tmp_path):
+    import RNS
+    id_file = tmp_path / "my_id"
+    id_file.write_text("fake")
+    monkeypatch.setattr(sys, "argv", [
+        "send-lxmf", "--destination", VALID_HEX,
+        "--identity", str(id_file),
+    ])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    _simulate_delivery(monkeypatch)
+
+    _run_main()
+    RNS.Identity.from_file.assert_called_once_with(str(id_file))
+
+
+def test_creates_new_identity_when_none_exists(monkeypatch, tmp_path):
+    import RNS
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: str(tmp_path))
+
+    new_identity = mock.MagicMock()
+    RNS.Identity.return_value = new_identity
+    _simulate_delivery(monkeypatch)
+
+    _run_main()
+    new_identity.to_file.assert_called_once()
+
+
+def test_loads_existing_identity_from_data_dir(monkeypatch, tmp_path):
+    import RNS
+    id_file = tmp_path / "identity"
+    id_file.write_text("fake")
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: str(tmp_path))
+    _simulate_delivery(monkeypatch)
+
+    _run_main()
+    RNS.Identity.from_file.assert_called_with(str(id_file))
+
+
+def test_failed_delivery_exits_1(monkeypatch, capsys):
+    import LXMF
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
+
+    def _handle(msg):
+        cb = msg.register_failed_callback.call_args[0][0]
+        cb(msg)
+
+    LXMF.LXMRouter.return_value.handle_outbound.side_effect = _handle
+
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 1
+    assert "delivery failed" in capsys.readouterr().err.lower()
+
+
+def test_path_timeout_exits_1(monkeypatch, capsys):
+    import RNS
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
+    monkeypatch.setattr("send_lxmf.__main__.TIMEOUT", 0)
+    RNS.Transport.has_path.return_value = False
+
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 1
+    assert "timed out waiting for path" in capsys.readouterr().err.lower()
+
+
+def test_identity_timeout_exits_1(monkeypatch, capsys):
+    import RNS
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
+    monkeypatch.setattr("send_lxmf.__main__.TIMEOUT", 0)
+    RNS.Transport.has_path.return_value = True
+    RNS.Identity.recall.return_value = None
+
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 1
+    assert "timed out waiting for recipient identity" in capsys.readouterr().err.lower()
+
+
+def test_delivery_timeout_exits_1(monkeypatch, capsys):
+    import LXMF
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
+    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
+    monkeypatch.setattr("send_lxmf.__main__.TIMEOUT", 0)
+    LXMF.LXMRouter.return_value.handle_outbound.side_effect = None
+
+    with pytest.raises(SystemExit) as exc:
+        _run_main()
+    assert exc.value.code == 1
+    assert "timed out waiting for delivery" in capsys.readouterr().err.lower()
+
+
+# ---------------------------------------------------------------------------
+# Helpers & fixtures
+# ---------------------------------------------------------------------------
+
+VALID_HEX = "b9af7034186731b9f009d06795172a36"
+
+
+def _make_fake_rns():
+    """Return a fake RNS module with the minimal surface used by main()."""
+    rns = types.ModuleType("RNS")
+    rns.Reticulum = mock.MagicMock()
+    rns.log = mock.MagicMock()
+    rns.prettyhexrep = lambda h: h.hex() if isinstance(h, bytes) else str(h)
+
+    identity = mock.MagicMock()
+    identity.from_file = mock.MagicMock(return_value=mock.MagicMock())
+    identity.return_value = mock.MagicMock()
+    identity.recall = mock.MagicMock(return_value=mock.MagicMock())
+    rns.Identity = identity
+
+    transport = mock.MagicMock()
+    transport.has_path = mock.MagicMock(return_value=True)
+    transport.request_path = mock.MagicMock()
+    rns.Transport = transport
+
+    destination = mock.MagicMock()
+    destination.OUT = 1
+    destination.SINGLE = 2
+    rns.Destination = destination
+
+    return rns
+
+
+def _make_fake_lxmf():
+    lxmf = types.ModuleType("LXMF")
+    router_instance = mock.MagicMock()
+    router_instance.register_delivery_identity.return_value = mock.MagicMock(
+        hash=bytes.fromhex(VALID_HEX)
+    )
+    lxmf.LXMRouter = mock.MagicMock(return_value=router_instance)
+
+    msg = mock.MagicMock()
+    lxmf.LXMessage = mock.MagicMock(return_value=msg)
+    lxmf.LXMessage.DIRECT = 0
+    return lxmf
+
+
+@pytest.fixture(autouse=True)
+def _patch_modules(monkeypatch):
+    """Inject fake RNS / LXMF into sys.modules before every test."""
+    fake_rns = _make_fake_rns()
+    fake_lxmf = _make_fake_lxmf()
+    monkeypatch.setitem(sys.modules, "RNS", fake_rns)
+    monkeypatch.setitem(sys.modules, "LXMF", fake_lxmf)
+    import importlib
+    import send_lxmf.__main__ as mod
+    importlib.reload(mod)
+    yield
+
+
+def _run_main():
+    from send_lxmf.__main__ import main
+    main()
+
+
+def _simulate_delivery(monkeypatch):
+    """Patch handle_outbound to immediately fire the delivery callback."""
+    import LXMF
+
+    def _handle(msg):
+        cb = msg.register_delivery_callback.call_args[0][0]
+        cb(msg)
+
+    LXMF.LXMRouter.return_value.handle_outbound.side_effect = _handle
