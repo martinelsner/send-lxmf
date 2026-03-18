@@ -21,7 +21,7 @@ APP_NAME = "send_lxmf"
 TIMEOUT = 30  # seconds to wait for path / identity / delivery
 
 
-def _send_message(destination_hex, content, identity_path=None, display_name=None, title="", prepend_title=False):
+def _send_message(destination_hex, content, identity_path=None, display_name=None, title="", prepend_title=False, attachments=None):
     """Send an LXMF message. Raises SystemExit on errors."""
     try:
         destination_hash = bytes.fromhex(destination_hex)
@@ -97,12 +97,25 @@ def _send_message(destination_hex, content, identity_path=None, display_name=Non
     if prepend_title and title:
         content = title + "\n\n" + content
 
+    fields = {LXMF.FIELD_RENDERER: LXMF.RENDERER_MARKDOWN}
+
+    if attachments:
+        file_list = []
+        for path in attachments:
+            path = os.path.expanduser(path)
+            if not os.path.isfile(path):
+                print(f"Error: attachment not found: {path}", file=sys.stderr)
+                sys.exit(1)
+            with open(path, "rb") as f:
+                file_list.append([os.path.basename(path), f.read()])
+        fields[LXMF.FIELD_FILE_ATTACHMENTS] = file_list
+
     message = LXMF.LXMessage(
         destination,
         source,
         content,
         title=title,
-        fields={LXMF.FIELD_RENDERER: LXMF.RENDERER_MARKDOWN},
+        fields=fields,
         desired_method=LXMF.LXMessage.DIRECT,
     )
 
@@ -144,6 +157,7 @@ def main():
     parser.add_argument("--display-name", default=None, help="Sender name to announce (visible to recipients)")
     parser.add_argument("--title", default="", help="Message title (not shown by all clients)")
     parser.add_argument("--prepend-title", action="store_true", help="Prepend the title to the message body, separated by a blank line")
+    parser.add_argument("--attach", action="append", default=[], metavar="FILE", help="Attach a file (can be used multiple times)")
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -159,6 +173,7 @@ def main():
         display_name=args.display_name,
         title=args.title,
         prepend_title=args.prepend_title,
+        attachments=args.attach,
     )
 
 

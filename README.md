@@ -79,6 +79,12 @@ for clients that don't display the title field (like MeshChat):
 echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder" --prepend-title
 ```
 
+Attach one or more files:
+
+```bash
+echo "See attached" | send-lxmf --destination <recipient_hex_hash> --attach report.pdf --attach photo.jpg
+```
+
 If no identity is provided, one will be created and stored automatically.
 
 ## Development Setup

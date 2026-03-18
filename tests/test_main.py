@@ -200,6 +200,7 @@ def _make_fake_lxmf():
     lxmf.LXMessage.DIRECT = 0
     lxmf.FIELD_RENDERER = 0x0F
     lxmf.RENDERER_MARKDOWN = 0x02
+    lxmf.FIELD_FILE_ATTACHMENTS = 0x05
     return lxmf
 
 
