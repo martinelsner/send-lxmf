@@ -31,6 +31,23 @@ pip install --user pipx
 
 Then run `pipx ensurepath` to make sure `~/.local/bin` is on your PATH.
 
+### Debian 32-bit / Termux
+
+On platforms where the Python `cryptography` package has no prebuilt wheels
+(e.g. Debian on 32-bit ARM, or Termux on Android), install it from the system
+package manager first and tell pipx to reuse system packages:
+
+```bash
+# Debian / Ubuntu 32-bit
+sudo apt install python3-cryptography
+pipx install --system-site-packages https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
+
+# Termux (pipx is not packaged, install it via pip first)
+pkg install python python-cryptography python-pip
+pip install pipx
+pipx install --system-site-packages https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
+```
+
 ## Usage
 
 ```bash
