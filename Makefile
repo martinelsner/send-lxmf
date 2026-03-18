@@ -18,4 +18,4 @@ build: install ## Build sdist and wheel for PyPI
 	uv build
 
 clean: ## Remove the venv and build artifacts
-	rm -rf $(VENV) *.egg-info src/*.egg-info dist/
+	rm -rf $(VENV) *.egg-info src/*.egg-info dist/ result

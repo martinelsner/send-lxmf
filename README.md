@@ -48,6 +48,26 @@ pip install pipx
 pipx install --system-site-packages https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
 ```
 
+### NixOS
+
+Add to your `configuration.nix`:
+
+```nix
+let
+  send-lxmf = import (builtins.fetchTarball "https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz") {};
+in
+{
+  environment.systemPackages = [ send-lxmf ];
+}
+```
+
+You can also build and test it without installing:
+
+```bash
+nix-build https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
+./result/bin/send-lxmf --help
+```
+
 ## Usage
 
 ```bash
