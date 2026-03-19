@@ -1,4 +1,4 @@
-"""Tests for send_lxmf.__main__.main()."""
+"""Tests for send_lxmf.send.main() (the send-lxmf CLI)."""
 
 import io
 import sys
@@ -70,7 +70,7 @@ def test_creates_new_identity_when_none_exists(monkeypatch, tmp_path):
     import RNS
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: str(tmp_path))
+    monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: str(tmp_path))
 
     new_identity = mock.MagicMock()
     RNS.Identity.return_value = new_identity
@@ -86,7 +86,7 @@ def test_loads_existing_identity_from_data_dir(monkeypatch, tmp_path):
     id_file.write_text("fake")
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: str(tmp_path))
+    monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: str(tmp_path))
     _simulate_delivery(monkeypatch)
 
     _run_main()
@@ -97,7 +97,7 @@ def test_failed_delivery_exits_1(monkeypatch, capsys):
     import LXMF
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
+    monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
 
     def _handle(msg):
         cb = msg.register_failed_callback.call_args[0][0]
@@ -115,8 +115,8 @@ def test_path_timeout_exits_1(monkeypatch, capsys):
     import RNS
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
-    monkeypatch.setattr("send_lxmf.__main__.TIMEOUT", 0)
+    monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
+    monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
     RNS.Transport.has_path.return_value = False
 
     with pytest.raises(SystemExit) as exc:
@@ -129,8 +129,8 @@ def test_identity_timeout_exits_1(monkeypatch, capsys):
     import RNS
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
-    monkeypatch.setattr("send_lxmf.__main__.TIMEOUT", 0)
+    monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
+    monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
     RNS.Transport.has_path.return_value = True
     RNS.Identity.recall.return_value = None
 
@@ -144,8 +144,8 @@ def test_delivery_timeout_exits_1(monkeypatch, capsys):
     import LXMF
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.__main__.user_data_dir", lambda *a, **kw: "/tmp")
-    monkeypatch.setattr("send_lxmf.__main__.TIMEOUT", 0)
+    monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
+    monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
     LXMF.LXMRouter.return_value.handle_outbound.side_effect = None
 
     with pytest.raises(SystemExit) as exc:
@@ -162,7 +162,7 @@ VALID_HEX = "b9af7034186731b9f009d06795172a36"
 
 
 def _make_fake_rns():
-    """Return a fake RNS module with the minimal surface used by main()."""
+    """Return a fake RNS module with the minimal surface used by send_message()."""
     rns = types.ModuleType("RNS")
     rns.Reticulum = mock.MagicMock()
     rns.log = mock.MagicMock()
@@ -212,13 +212,15 @@ def _patch_modules(monkeypatch):
     monkeypatch.setitem(sys.modules, "RNS", fake_rns)
     monkeypatch.setitem(sys.modules, "LXMF", fake_lxmf)
     import importlib
-    import send_lxmf.__main__ as mod
-    importlib.reload(mod)
+    import send_lxmf.lib as lib_mod
+    import send_lxmf.send as send_mod
+    importlib.reload(lib_mod)
+    importlib.reload(send_mod)
     yield
 
 
 def _run_main():
-    from send_lxmf.__main__ import main
+    from send_lxmf.send import main
     main()
 
 

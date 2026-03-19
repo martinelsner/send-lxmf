@@ -1,0 +1,47 @@
+"""
+Send an LXMF message over the Reticulum network.
+
+Message content is read from standard input.
+
+Usage:
+    echo "Hello there" | send-lxmf --destination b9af7034186731b9f009d06795172a36
+    send-lxmf --destination b9af7034186731b9f009d06795172a36 --identity ~/.reticulum/my_id < message.txt
+"""
+
+import argparse
+import sys
+
+from send_lxmf.lib import send_message
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Send an LXMF message (content read from stdin).")
+    parser.add_argument("--destination", required=True, help="Recipient LXMF address as hex hash")
+    parser.add_argument("--identity", default=None, help="Path to a Reticulum identity file to use as sender")
+    parser.add_argument("--display-name", default=None, help="Sender name to announce (visible to recipients)")
+    parser.add_argument("--title", default="", help="Message title (not shown by all clients)")
+    parser.add_argument("--prepend-title", action=argparse.BooleanOptionalAction, default=True, help="Prepend the title to the message body, separated by a blank line (default: true)")
+    parser.add_argument("--attach", action="append", default=[], metavar="FILE", help="Attach a file (can be used multiple times)")
+    parser.add_argument("--rnsconfig", default=None, metavar="RNSCONFIG", help="Path to alternative Reticulum config directory")
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
+    args = parser.parse_args()
+    content = sys.stdin.read()
+
+    send_message(
+        destination_hex=args.destination,
+        content=content,
+        identity_path=args.identity,
+        display_name=args.display_name,
+        title=args.title,
+        prepend_title=args.prepend_title,
+        attachments=args.attach,
+        rnsconfig=args.rnsconfig,
+    )
+
+
+if __name__ == "__main__":
+    main()

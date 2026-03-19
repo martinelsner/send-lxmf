@@ -82,6 +82,8 @@ nix-build https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
 
 ## Usage
 
+### send-lxmf
+
 ```bash
 echo "Hello there" | send-lxmf --destination <recipient_hex_hash>
 ```
@@ -118,6 +120,53 @@ echo "See attached" | send-lxmf --destination <recipient_hex_hash> --attach repo
 ```
 
 If no identity is provided, one will be created and stored automatically.
+
+### sendmail-lxmf
+
+A sendmail-compatible interface for LXMF. It reads an RFC 2822 email message
+from stdin and delivers it over LXMF. This makes it usable as a drop-in
+transport for tools that speak sendmail (e.g. `git send-email`, `msmtp`,
+cron `MAILTO`, etc.).
+
+The recipient LXMF address is taken from the `To:` header or from the
+command-line arguments (which take precedence). The `Subject:` header becomes
+the LXMF message title. MIME attachments are forwarded as LXMF file
+attachments.
+
+Recipient addresses can be specified in several forms:
+
+- bare hex: `b9af7034186731b9f009d06795172a36`
+- angle brackets: `<b9af7034186731b9f009d06795172a36>`
+- email-style: `b9af7034186731b9f009d06795172a36@lxmf`
+- with display name: `Alice <b9af7034186731b9f009d06795172a36@lxmf>`
+
+Basic usage:
+
+```bash
+sendmail-lxmf b9af7034186731b9f009d06795172a36 < message.eml
+```
+
+Pipe a message directly:
+
+```bash
+printf "To: b9af7034186731b9f009d06795172a36@lxmf\nSubject: Hello\n\nHi there\n" | sendmail-lxmf
+```
+
+Use with a specific sender identity:
+
+```bash
+sendmail-lxmf --identity ~/.reticulum/my_id < message.eml
+```
+
+Set a display name (overrides From: header):
+
+```bash
+sendmail-lxmf --display-name "Alice" < message.eml
+```
+
+Common sendmail flags (`-i`, `-t`, `-f`, `-F`, `-o`) are accepted and
+silently ignored for compatibility, so existing sendmail invocations
+generally work without modification.
 
 ## Development Setup
 
