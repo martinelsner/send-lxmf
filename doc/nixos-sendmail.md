@@ -76,6 +76,23 @@ environment.etc."lxmf/aliases" = {
 Aliases take precedence over the default destination. See
 [sendmail-lxmf.md](sendmail-lxmf.md) for the full format.
 
+## Propagation node fallback (optional)
+
+If you have a local or known LXMF propagation node, you can configure it
+so that messages are retried via store-and-forward when direct delivery
+fails:
+
+```nix
+environment.etc."lxmf/propagation-node" = {
+  text = "c4d5e6f7a8b9c4d5e6f7a8b9c4d5e6f7\n";
+  mode = "0644";
+};
+```
+
+This is especially useful for system mail where the recipient may be
+offline. The message is first attempted via direct (opportunistic)
+delivery. If that fails, it is handed off to the propagation node.
+
 ## How it works
 
 When a service like cron or smartd sends mail to `root@localhost`, it

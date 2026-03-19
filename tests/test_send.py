@@ -112,17 +112,18 @@ def test_failed_delivery_exits_1(monkeypatch, capsys):
 
 
 def test_path_timeout_exits_1(monkeypatch, capsys):
+    """With TIMEOUT=0 and no path, opportunistic delivery times out."""
     import RNS
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
     monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
     RNS.Transport.has_path.return_value = False
+    RNS.Identity.recall.return_value = None
 
     with pytest.raises(SystemExit) as exc:
         _run_main()
     assert exc.value.code == 1
-    assert "timed out waiting for path" in capsys.readouterr().err.lower()
 
 
 def test_identity_timeout_exits_1(monkeypatch, capsys):
@@ -141,6 +142,7 @@ def test_identity_timeout_exits_1(monkeypatch, capsys):
 
 
 def test_delivery_timeout_exits_1(monkeypatch, capsys):
+    """With TIMEOUT=0 and no callback fired, delivery times out."""
     import LXMF
     monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
@@ -151,7 +153,7 @@ def test_delivery_timeout_exits_1(monkeypatch, capsys):
     with pytest.raises(SystemExit) as exc:
         _run_main()
     assert exc.value.code == 1
-    assert "timed out waiting for delivery" in capsys.readouterr().err.lower()
+    assert "delivery failed" in capsys.readouterr().err.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +200,8 @@ def _make_fake_lxmf():
     msg = mock.MagicMock()
     lxmf.LXMessage = mock.MagicMock(return_value=msg)
     lxmf.LXMessage.DIRECT = 0
+    lxmf.LXMessage.OPPORTUNISTIC = 1
+    lxmf.LXMessage.PROPAGATED = 2
     lxmf.FIELD_RENDERER = 0x0F
     lxmf.RENDERER_MARKDOWN = 0x02
     lxmf.FIELD_FILE_ATTACHMENTS = 0x05

@@ -25,6 +25,8 @@ def main() -> None:
     parser.add_argument("--prepend-title", action=argparse.BooleanOptionalAction, default=True, help="Prepend the title to the message body, separated by a blank line (default: true)")
     parser.add_argument("--attach", action="append", default=[], metavar="FILE", help="Attach a file (can be used multiple times)")
     parser.add_argument("--rnsconfig", default=None, metavar="RNSCONFIG", help="Path to alternative Reticulum config directory")
+    parser.add_argument("--propagation-node", default=None, metavar="HEX_HASH", help="Propagation node to fall back to if direct delivery fails")
+    parser.add_argument("--timeout", type=int, default=None, metavar="SECONDS", help="Seconds to wait for delivery (default: 15)")
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -42,6 +44,8 @@ def main() -> None:
         prepend_title=args.prepend_title,
         attachments=args.attach,
         rnsconfig=args.rnsconfig,
+        propagation_node=args.propagation_node,
+        timeout=args.timeout,
     )
 
 

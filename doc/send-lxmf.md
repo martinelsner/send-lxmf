@@ -55,3 +55,15 @@ Use an alternative Reticulum config directory:
 ```bash
 echo "Hi" | send-lxmf --destination <recipient_hex_hash> --rnsconfig /path/to/config
 ```
+
+### Propagation node fallback
+
+If direct delivery fails, fall back to sending via a propagation node
+(store-and-forward). This is useful when the recipient may be offline:
+
+```bash
+echo "Hi" | send-lxmf --destination <recipient_hex_hash> --propagation-node <node_hex_hash>
+```
+
+The message is first attempted via direct (opportunistic) delivery. Only if
+that fails is it handed off to the specified propagation node.

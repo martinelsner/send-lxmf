@@ -89,6 +89,28 @@ Common sendmail flags (`-i`, `-t`, `-f`, `-F`, `-o`) are accepted and
 silently ignored for compatibility, so existing sendmail invocations
 generally work without modification.
 
+### Propagation node fallback
+
+If direct delivery fails, fall back to sending via a propagation node
+(store-and-forward). This is useful when the recipient may be offline:
+
+```bash
+sendmail-lxmf --propagation-node <node_hex_hash> < message.eml
+```
+
+The propagation node can also be configured system-wide in
+`/etc/lxmf/propagation-node` (same format as `default-destination` — a
+single hex hash, with optional comments). The `--propagation-node` flag
+takes precedence over the config file.
+
+```bash
+sudo mkdir -p /etc/lxmf
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/lxmf/propagation-node
+```
+
+The message is first attempted via direct (opportunistic) delivery. If
+that fails, it is handed off to the propagation node.
+
 
 ## NixOS
 

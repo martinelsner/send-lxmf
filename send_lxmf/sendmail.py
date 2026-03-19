@@ -34,6 +34,7 @@ _HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 _ALIASES_PATH = "/etc/lxmf/aliases"
 _DEFAULT_DEST_PATH = "/etc/lxmf/default-destination"
+_PROPAGATION_NODE_PATH = "/etc/lxmf/propagation-node"
 
 
 def _extract_lxmf_address(value: str | None) -> str | None:
@@ -74,6 +75,26 @@ def _read_default_destination(path: str = _DEFAULT_DEST_PATH) -> str | None:
 
     The file should contain a single hex hash, optionally with whitespace
     or comments (lines starting with ``#``).
+    """
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                addr = _extract_lxmf_address(line)
+                if addr:
+                    return addr
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def _read_propagation_node(path: str = _PROPAGATION_NODE_PATH) -> str | None:
+    """Read the propagation node LXMF address from a config file.
+
+    Same format as ``default-destination``: a single hex hash, with
+    optional whitespace and ``#`` comments.
     """
     try:
         with open(path) as f:
@@ -271,6 +292,8 @@ def main() -> None:
     parser.add_argument("-o", dest="sendmail_opt", action="append", help="(ignored, accepted for sendmail compatibility)")
     parser.add_argument("--prepend-title", action=argparse.BooleanOptionalAction, default=True, help="Prepend the title to the message body, separated by a blank line (default: true)")
     parser.add_argument("--rnsconfig", default=None, metavar="RNSCONFIG", help="Path to alternative Reticulum config directory")
+    parser.add_argument("--propagation-node", default=None, metavar="HEX_HASH", help="Propagation node to fall back to if direct delivery fails")
+    parser.add_argument("--timeout", type=int, default=None, metavar="SECONDS", help="Seconds to wait for delivery (default: 15)")
 
     args = parser.parse_args()
 
@@ -300,6 +323,7 @@ def main() -> None:
         sys.exit(1)
 
     display_name = args.display_name or args.full_name or parsed.from_name
+    propagation_node = args.propagation_node or _read_propagation_node()
 
     try:
         send_message(
@@ -311,6 +335,8 @@ def main() -> None:
             prepend_title=args.prepend_title,
             attachments=parsed.attachments or None,
             rnsconfig=args.rnsconfig,
+            propagation_node=propagation_node,
+            timeout=args.timeout,
         )
     finally:
         if parsed.tmp_dir:
