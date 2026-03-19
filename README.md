@@ -61,6 +61,18 @@ in
 }
 ```
 
+To pull the latest dependencies from nixpkgs-unstable, pass your own `pkgs`:
+
+```nix
+let
+  unstable = import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz") {};
+  send-lxmf = import (builtins.fetchTarball "https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz") { pkgs = unstable; };
+in
+{
+  environment.systemPackages = [ send-lxmf ];
+}
+```
+
 You can also build and test it without installing:
 
 ```bash
