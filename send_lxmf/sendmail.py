@@ -26,6 +26,7 @@ from typing import NamedTuple
 
 from markdownify import markdownify as md
 
+from send_lxmf import __version__
 from send_lxmf.lib import send_message
 
 # Matches a bare 32-byte hex hash (the LXMF address format).
@@ -248,6 +249,7 @@ def main() -> None:
         description="sendmail-compatible LXMF delivery agent. "
                     "Reads an RFC 2822 message from stdin.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "recipients", nargs="*",
         help="Recipient LXMF address(es) as hex hash. "

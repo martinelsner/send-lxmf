@@ -77,3 +77,6 @@ You can also build and test it without installing:
 nix-build https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
 ./result/bin/send-lxmf --help
 ```
+
+For setting up `sendmail-lxmf` as the system sendmail on NixOS, see
+[doc/nixos-sendmail.md](doc/nixos-sendmail.md).

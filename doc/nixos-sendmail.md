@@ -1,0 +1,93 @@
+# Setting up sendmail-lxmf on NixOS
+
+This guide shows how to replace the system `sendmail` with `sendmail-lxmf`
+on NixOS, so that all local mail (from cron, smartd, etc.) is delivered
+over LXMF.
+
+## Overview
+
+The setup involves three pieces:
+
+1. Installing `send-lxmf` and creating a wrapper that exposes
+   `sendmail-lxmf` as `/bin/sendmail`.
+2. Configuring `/etc/lxmf/default-destination` so local recipients
+   (like `root`) resolve to an LXMF address.
+3. Optionally placing the wrapper in `/run/wrappers/bin/sendmail` for
+   services that hardcode that path.
+
+## configuration.nix
+
+```nix
+let
+  unstable = import (fetchTarball
+    "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz"
+  ) {};
+
+  send-lxmf = import (builtins.fetchTarball
+    "https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz"
+  ) { pkgs = unstable; };
+
+  # Wrapper that symlinks sendmail-lxmf as /bin/sendmail.
+  sendmail-lxmf-wrapper = pkgs.runCommand "sendmail-lxmf-wrapper" { } ''
+    mkdir -p $out/bin
+    ln -s ${send-lxmf}/bin/sendmail-lxmf $out/bin/sendmail
+  '';
+in
+{
+  # Install both the send-lxmf package and the sendmail wrapper.
+  environment.systemPackages = [
+    send-lxmf
+    sendmail-lxmf-wrapper
+  ];
+
+  # Default LXMF destination for all local mail.
+  # Replace with your own LXMF destination hash.
+  environment.etc."lxmf/default-destination" = {
+    text = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4\n";
+    mode = "0644";
+  };
+
+  # (Optional) Place sendmail at /run/wrappers/bin/sendmail so services
+  # that hardcode that path (e.g. smartd) can find it.
+  security.wrappers.sendmail = {
+    setuid = false;
+    owner = "root";
+    group = "root";
+    source = "${sendmail-lxmf-wrapper}/bin/sendmail";
+  };
+}
+```
+
+## Per-user aliases (optional)
+
+If you need different local users to map to different LXMF destinations,
+add an aliases file:
+
+```nix
+environment.etc."lxmf/aliases" = {
+  text = ''
+    root: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+    admin: b9af7034186731b9f009d06795172a36
+  '';
+  mode = "0644";
+};
+```
+
+Aliases take precedence over the default destination. See
+[sendmail-lxmf.md](sendmail-lxmf.md) for the full format.
+
+## How it works
+
+When a service like cron or smartd sends mail to `root@localhost`, it
+invokes `/bin/sendmail` (or `/run/wrappers/bin/sendmail`), which is now
+`sendmail-lxmf`. Since `root` is not a valid LXMF hex hash, sendmail-lxmf
+checks `/etc/lxmf/aliases` first, then falls back to
+`/etc/lxmf/default-destination`, and delivers the message over LXMF.
+
+## Notes
+
+- The `unstable` pinning is optional but recommended — it ensures you get
+  the latest Reticulum and LXMF packages from nixpkgs.
+- `sendmail-lxmf` reads from stdin and exits, so it works fine as a
+  oneshot invocation from any service. No daemon needed for the sendmail
+  side (though you'll want `rnsd` running for Reticulum transport).

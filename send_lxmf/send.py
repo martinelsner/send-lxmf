@@ -11,11 +11,13 @@ Usage:
 import argparse
 import sys
 
+from send_lxmf import __version__
 from send_lxmf.lib import send_message
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Send an LXMF message (content read from stdin).")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--destination", required=True, help="Recipient LXMF address as hex hash")
     parser.add_argument("--identity", default=None, help="Path to a Reticulum identity file to use as sender")
     parser.add_argument("--display-name", default=None, help="Sender name to announce (visible to recipients)")
