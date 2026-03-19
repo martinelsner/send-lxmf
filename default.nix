@@ -2,10 +2,12 @@
 
 let
   python = pkgs.python3;
+  versionFile = builtins.readFile ./send_lxmf/__init__.py;
+  version = builtins.head (builtins.match ''.*__version__ = "([^"]+)".*'' versionFile);
 in
 python.pkgs.buildPythonApplication {
   pname = "send-lxmf";
-  version = "0.4.0";
+  inherit version;
   src = pkgs.lib.cleanSource ./.;
   format = "pyproject";
 
@@ -13,6 +15,7 @@ python.pkgs.buildPythonApplication {
 
   dependencies = [
     python.pkgs.lxmf
+    python.pkgs.markdownify
     python.pkgs.platformdirs
   ];
 

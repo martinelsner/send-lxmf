@@ -4,81 +4,11 @@ Send LXMF messages over the Reticulum network from the command line.
 
 ## Installation
 
-Install with [pipx](https://pipx.pypa.io/):
-
 ```bash
 pipx install https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
 ```
 
-If you don't have pipx yet:
-
-```bash
-# Debian / Ubuntu
-sudo apt install pipx
-
-# Fedora
-sudo dnf install pipx
-
-# Arch
-sudo pacman -S python-pipx
-
-# macOS
-brew install pipx
-
-# Windows
-pip install --user pipx
-```
-
-Then run `pipx ensurepath` to make sure `~/.local/bin` is on your PATH.
-
-### Debian 32-bit / Termux
-
-On platforms where the Python `cryptography` package has no prebuilt wheels
-(e.g. Debian on 32-bit ARM, or Termux on Android), install it from the system
-package manager first and tell pipx to reuse system packages:
-
-```bash
-# Debian / Ubuntu 32-bit
-sudo apt install python3-cryptography
-pipx install --system-site-packages https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
-
-# Termux (pipx is not packaged, install it via pip first)
-pkg install python python-cryptography python-pip
-pip install pipx
-pipx install --system-site-packages https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
-```
-
-### NixOS
-
-Add to your `configuration.nix`:
-
-```nix
-let
-  send-lxmf = import (builtins.fetchTarball "https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz") {};
-in
-{
-  environment.systemPackages = [ send-lxmf ];
-}
-```
-
-To pull the latest dependencies from nixpkgs-unstable, pass your own `pkgs`:
-
-```nix
-let
-  unstable = import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz") {};
-  send-lxmf = import (builtins.fetchTarball "https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz") { pkgs = unstable; };
-in
-{
-  environment.systemPackages = [ send-lxmf ];
-}
-```
-
-You can also build and test it without installing:
-
-```bash
-nix-build https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
-./result/bin/send-lxmf --help
-```
+See [INSTALL.md](INSTALL.md) for other methods (Debian 32-bit, Termux, NixOS) and troubleshooting.
 
 ## Usage
 
@@ -100,17 +30,14 @@ Set a display name so recipients see who sent the message:
 echo "Hi" | send-lxmf --destination <recipient_hex_hash> --display-name "Alice"
 ```
 
-Add a title to the message (shown by clients that support it, like NomadNet):
+Add a title to the message (shown by clients that support it, like NomadNet).
+The title is prepended to the message body by default, so clients that don't
+display the title field (like MeshChat) still show it. Use `--no-prepend-title`
+to disable this:
 
 ```bash
 echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder"
-```
-
-Use `--prepend-title` to also include the title at the top of the message body,
-for clients that don't display the title field (like MeshChat):
-
-```bash
-echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder" --prepend-title
+echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder" --no-prepend-title
 ```
 
 Attach one or more files:
@@ -131,7 +58,7 @@ cron `MAILTO`, etc.).
 The recipient LXMF address is taken from the `To:` header or from the
 command-line arguments (which take precedence). The `Subject:` header becomes
 the LXMF message title. MIME attachments are forwarded as LXMF file
-attachments.
+attachments. HTML-only emails are automatically converted to Markdown.
 
 Recipient addresses can be specified in several forms:
 

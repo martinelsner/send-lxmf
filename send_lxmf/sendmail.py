@@ -22,6 +22,8 @@ import shutil
 import sys
 import tempfile
 
+from markdownify import markdownify as md
+
 from send_lxmf.lib import send_message
 
 # Matches a bare 32-byte hex hash (the LXMF address format).
@@ -73,6 +75,7 @@ def _parse_email(raw: str) -> tuple[str | None, str, str, list[str], str | None]
     title = msg.get("Subject", "") or ""
 
     body = ""
+    html_body = ""
     attachment_paths = []
     tmp_dir = None
 
@@ -85,6 +88,10 @@ def _parse_email(raw: str) -> tuple[str | None, str, str, list[str], str | None]
                 payload = part.get_content()
                 if isinstance(payload, str):
                     body += payload
+            elif content_type == "text/html" and "attachment" not in disposition:
+                payload = part.get_content()
+                if isinstance(payload, str):
+                    html_body += payload
             elif part.get_filename():
                 filename = part.get_filename()
                 data = part.get_content()
@@ -98,9 +105,16 @@ def _parse_email(raw: str) -> tuple[str | None, str, str, list[str], str | None]
                     f.write(data)
                 attachment_paths.append(path)
     else:
+        content_type = msg.get_content_type()
         payload = msg.get_content()
         if isinstance(payload, str):
-            body = payload
+            if content_type == "text/html":
+                html_body = payload
+            else:
+                body = payload
+
+    if not body and html_body:
+        body = md(html_body, strip=["img"]).strip()
 
     return destination, title, body, attachment_paths, tmp_dir
 
