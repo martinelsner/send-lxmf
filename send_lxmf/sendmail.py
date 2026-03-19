@@ -16,11 +16,13 @@ Usage:
 import argparse
 import email
 import email.policy
+import email.utils
 import os
 import re
 import shutil
 import sys
 import tempfile
+from typing import NamedTuple
 
 from markdownify import markdownify as md
 
@@ -160,12 +162,23 @@ def _resolve_recipient(recipient: str,
     return [default] if default else []
 
 
-def _parse_email(raw: str) -> tuple[str | None, str, str, str, list[str], str | None]:
-    """Parse a raw email string and return (destination, raw_to, title, body, attachment_paths, tmp_dir).
+class ParsedEmail(NamedTuple):
+    """Result of parsing an RFC 2822 email."""
+    to: str
+    from_name: str | None
+    subject: str
+    body: str
+    attachments: list[str]
+    tmp_dir: str | None
+
+
+def _parse_email(raw: str) -> ParsedEmail:
+    """Parse a raw email string.
 
     *destination* is the LXMF hex address extracted from the To: header, or
     *None* if the header doesn't contain a valid LXMF address.  *raw_to* is
     the raw To: header value for further resolution by the caller.
+    *display_name* is the sender name extracted from the From: header.
 
     *attachment_paths* is a list of paths to temporary files that the caller
     should clean up after sending.
@@ -173,8 +186,16 @@ def _parse_email(raw: str) -> tuple[str | None, str, str, str, list[str], str | 
     msg = email.message_from_string(raw, policy=email.policy.default)
 
     raw_to = msg.get("To", "") or ""
-    destination = _extract_lxmf_address(raw_to)
     title = msg.get("Subject", "") or ""
+
+    # Extract display name from From: header.
+    raw_from = msg.get("From", "") or ""
+    display_name = None
+    if raw_from:
+        # email.utils.parseaddr returns (realname, addr)
+        realname, _ = email.utils.parseaddr(raw_from)
+        if realname:
+            display_name = realname
 
     body = ""
     html_body = ""
@@ -218,7 +239,7 @@ def _parse_email(raw: str) -> tuple[str | None, str, str, str, list[str], str | 
     if not body and html_body:
         body = md(html_body, strip=["img"]).strip()
 
-    return destination, raw_to, title, body, attachment_paths, tmp_dir
+    return ParsedEmail(raw_to, display_name, title, body, attachment_paths, tmp_dir)
 
 
 def main() -> None:
@@ -256,7 +277,7 @@ def main() -> None:
         print("Error: no message provided on stdin.", file=sys.stderr)
         sys.exit(1)
 
-    destination_from_header, raw_to, title, body, attachment_paths, tmp_dir = _parse_email(raw)
+    parsed = _parse_email(raw)
 
     # Determine recipients: CLI args take precedence over To: header.
     destinations = []
@@ -267,11 +288,8 @@ def main() -> None:
                 print(f"Error: could not resolve '{r}' to an LXMF address.", file=sys.stderr)
                 sys.exit(1)
             destinations.extend(addrs)
-    elif destination_from_header:
-        destinations.append(destination_from_header)
-    elif raw_to:
-        # To: header didn't contain a bare LXMF address — try alias / default.
-        addrs = _resolve_recipient(raw_to)
+    elif parsed.to:
+        addrs = _resolve_recipient(parsed.to)
         if addrs:
             destinations.extend(addrs)
 
@@ -279,22 +297,22 @@ def main() -> None:
         print("Error: no recipient specified (provide on command line or in To: header).", file=sys.stderr)
         sys.exit(1)
 
-    display_name = args.display_name or args.full_name
+    display_name = args.display_name or args.full_name or parsed.from_name
 
     try:
         send_message(
             destinations=destinations,
-            content=body,
+            content=parsed.body,
             identity_path=args.identity,
             display_name=display_name,
-            title=title,
+            title=parsed.subject,
             prepend_title=args.prepend_title,
-            attachments=attachment_paths or None,
+            attachments=parsed.attachments or None,
             rnsconfig=args.rnsconfig,
         )
     finally:
-        if tmp_dir:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+        if parsed.tmp_dir:
+            shutil.rmtree(parsed.tmp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

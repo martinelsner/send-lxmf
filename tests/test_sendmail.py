@@ -67,12 +67,13 @@ class TestParseEmail:
             "\r\n"
             "Body text\r\n"
         )
-        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
-        assert dest == VALID_HEX
-        assert title == "Hello"
-        assert "Body text" in body
-        assert attachments == []
-        assert tmp_dir is None
+        result = _parse_email(raw)
+        assert result.to == f"{VALID_HEX}@lxmf"
+        assert result.subject == "Hello"
+        assert "Body text" in result.body
+        assert result.attachments == []
+        assert result.tmp_dir is None
+        assert result.from_name is None
 
     def test_multipart_with_attachment(self, tmp_path):
         from send_lxmf.sendmail import _parse_email
@@ -96,33 +97,63 @@ class TestParseEmail:
             "AQIDBA==\r\n"
             "--BOUNDARY--\r\n"
         )
-        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
-        assert dest == VALID_HEX
-        assert title == "With attachment"
-        assert "See attached" in body
-        assert len(attachments) == 1
-        assert os.path.isfile(attachments[0])
-        assert os.path.basename(attachments[0]) == "data.bin"
-        assert tmp_dir is not None
-        assert attachments[0].startswith(tmp_dir)
-        with open(attachments[0], "rb") as f:
+        result = _parse_email(raw)
+        assert result.to == f"{VALID_HEX}@lxmf"
+        assert result.subject == "With attachment"
+        assert "See attached" in result.body
+        assert len(result.attachments) == 1
+        assert os.path.isfile(result.attachments[0])
+        assert os.path.basename(result.attachments[0]) == "data.bin"
+        assert result.tmp_dir is not None
+        assert result.attachments[0].startswith(result.tmp_dir)
+        with open(result.attachments[0], "rb") as f:
             assert f.read() == b"\x01\x02\x03\x04"
         # cleanup
-        shutil.rmtree(tmp_dir)
+        shutil.rmtree(result.tmp_dir)
 
     def test_no_to_header(self):
         from send_lxmf.sendmail import _parse_email
         raw = "Subject: No recipient\r\n\r\nBody\r\n"
-        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
-        assert dest is None
-        assert title == "No recipient"
+        result = _parse_email(raw)
+        assert result.to == ""
+        assert result.subject == "No recipient"
 
     def test_no_subject(self):
         from send_lxmf.sendmail import _parse_email
         raw = f"To: {VALID_HEX}@lxmf\r\n\r\nBody\r\n"
-        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
-        assert dest == VALID_HEX
-        assert title == ""
+        result = _parse_email(raw)
+        assert result.to == f"{VALID_HEX}@lxmf"
+        assert result.subject == ""
+
+    def test_from_display_name(self):
+        from send_lxmf.sendmail import _parse_email
+        raw = (
+            f"To: {VALID_HEX}@lxmf\r\n"
+            "From: Alice <alice@example.com>\r\n"
+            "Subject: Hi\r\n"
+            "\r\n"
+            "Body\r\n"
+        )
+        result = _parse_email(raw)
+        assert result.from_name == "Alice"
+
+    def test_from_no_display_name(self):
+        from send_lxmf.sendmail import _parse_email
+        raw = (
+            f"To: {VALID_HEX}@lxmf\r\n"
+            "From: alice@example.com\r\n"
+            "Subject: Hi\r\n"
+            "\r\n"
+            "Body\r\n"
+        )
+        result = _parse_email(raw)
+        assert result.from_name is None
+
+    def test_from_header_missing(self):
+        from send_lxmf.sendmail import _parse_email
+        raw = f"To: {VALID_HEX}@lxmf\r\nSubject: Hi\r\n\r\nBody\r\n"
+        result = _parse_email(raw)
+        assert result.from_name is None
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +287,40 @@ class TestSendmailCLI:
         with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
             _run_sendmail()
             assert spy.call_args.kwargs["display_name"] == "Carol"
+
+    def test_from_header_display_name(self, monkeypatch):
+        raw = (
+            f"To: {VALID_HEX}@lxmf\r\n"
+            "From: Alice <alice@example.com>\r\n"
+            "Subject: Hi\r\n"
+            "\r\n"
+            "Body\r\n"
+        )
+        monkeypatch.setattr(sys, "argv", ["sendmail-lxmf"])
+        monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+        _simulate_delivery(monkeypatch)
+
+        with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
+            _run_sendmail()
+            assert spy.call_args.kwargs["display_name"] == "Alice"
+
+    def test_display_name_flag_overrides_from_header(self, monkeypatch):
+        raw = (
+            f"To: {VALID_HEX}@lxmf\r\n"
+            "From: Alice <alice@example.com>\r\n"
+            "Subject: Hi\r\n"
+            "\r\n"
+            "Body\r\n"
+        )
+        monkeypatch.setattr(sys, "argv", [
+            "sendmail-lxmf", "--display-name", "Bob",
+        ])
+        monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+        _simulate_delivery(monkeypatch)
+
+        with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
+            _run_sendmail()
+            assert spy.call_args.kwargs["display_name"] == "Bob"
 
 
 # ---------------------------------------------------------------------------
