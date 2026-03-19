@@ -67,7 +67,7 @@ class TestParseEmail:
             "\r\n"
             "Body text\r\n"
         )
-        dest, title, body, attachments, tmp_dir = _parse_email(raw)
+        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
         assert dest == VALID_HEX
         assert title == "Hello"
         assert "Body text" in body
@@ -96,7 +96,7 @@ class TestParseEmail:
             "AQIDBA==\r\n"
             "--BOUNDARY--\r\n"
         )
-        dest, title, body, attachments, tmp_dir = _parse_email(raw)
+        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
         assert dest == VALID_HEX
         assert title == "With attachment"
         assert "See attached" in body
@@ -113,14 +113,14 @@ class TestParseEmail:
     def test_no_to_header(self):
         from send_lxmf.sendmail import _parse_email
         raw = "Subject: No recipient\r\n\r\nBody\r\n"
-        dest, title, body, attachments, tmp_dir = _parse_email(raw)
+        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
         assert dest is None
         assert title == "No recipient"
 
     def test_no_subject(self):
         from send_lxmf.sendmail import _parse_email
         raw = f"To: {VALID_HEX}@lxmf\r\n\r\nBody\r\n"
-        dest, title, body, attachments, tmp_dir = _parse_email(raw)
+        dest, raw_to, title, body, attachments, tmp_dir = _parse_email(raw)
         assert dest == VALID_HEX
         assert title == ""
 
@@ -157,7 +157,7 @@ class TestSendmailCLI:
         with pytest.raises(SystemExit) as exc:
             _run_sendmail()
         assert exc.value.code == 1
-        assert "not a valid lxmf address" in capsys.readouterr().err.lower()
+        assert "could not resolve" in capsys.readouterr().err.lower()
 
     def test_cli_recipient_overrides_to_header(self, monkeypatch):
         other_hex = "a" * 32
@@ -174,7 +174,7 @@ class TestSendmailCLI:
         with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
             _run_sendmail()
             spy.assert_called_once()
-            assert spy.call_args.kwargs["destination_hex"] == VALID_HEX
+            assert spy.call_args.kwargs["destinations"] == [VALID_HEX]
 
     def test_subject_becomes_title(self, monkeypatch):
         raw = (
@@ -204,7 +204,7 @@ class TestSendmailCLI:
 
         with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
             _run_sendmail()
-            assert spy.call_args.kwargs["destination_hex"] == VALID_HEX
+            assert spy.call_args.kwargs["destinations"] == [VALID_HEX]
 
     def test_sendmail_compat_flags_accepted(self, monkeypatch):
         """Common sendmail flags like -i, -t, -f should not cause errors."""
@@ -256,6 +256,229 @@ class TestSendmailCLI:
         with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
             _run_sendmail()
             assert spy.call_args.kwargs["display_name"] == "Carol"
+
+
+# ---------------------------------------------------------------------------
+# Recipient resolution tests
+# ---------------------------------------------------------------------------
+
+ANOTHER_HEX = "a" * 32
+
+
+class TestReadDefaultDestination:
+    """Unit tests for _read_default_destination()."""
+
+    def test_reads_bare_hash(self, tmp_path):
+        from send_lxmf.sendmail import _read_default_destination
+        f = tmp_path / "default-destination"
+        f.write_text(f"{VALID_HEX}\n")
+        assert _read_default_destination(str(f)) == VALID_HEX
+
+    def test_skips_comments_and_blanks(self, tmp_path):
+        from send_lxmf.sendmail import _read_default_destination
+        f = tmp_path / "default-destination"
+        f.write_text(f"# This is the admin\n\n{VALID_HEX}\n")
+        assert _read_default_destination(str(f)) == VALID_HEX
+
+    def test_returns_none_when_missing(self, tmp_path):
+        from send_lxmf.sendmail import _read_default_destination
+        assert _read_default_destination(str(tmp_path / "nope")) is None
+
+    def test_returns_none_for_empty_file(self, tmp_path):
+        from send_lxmf.sendmail import _read_default_destination
+        f = tmp_path / "default-destination"
+        f.write_text("")
+        assert _read_default_destination(str(f)) is None
+
+
+class TestReadAliases:
+    """Unit tests for _read_aliases()."""
+
+    def test_reads_aliases(self, tmp_path):
+        from send_lxmf.sendmail import _read_aliases
+        f = tmp_path / "aliases"
+        f.write_text(f"root: {VALID_HEX}\nadmin: {ANOTHER_HEX}\n")
+        aliases = _read_aliases(str(f))
+        assert aliases == {"root": [VALID_HEX], "admin": [ANOTHER_HEX]}
+
+    def test_skips_comments_and_blanks(self, tmp_path):
+        from send_lxmf.sendmail import _read_aliases
+        f = tmp_path / "aliases"
+        f.write_text(f"# comment\n\nroot: {VALID_HEX}\n")
+        aliases = _read_aliases(str(f))
+        assert aliases == {"root": [VALID_HEX]}
+
+    def test_case_insensitive_names(self, tmp_path):
+        from send_lxmf.sendmail import _read_aliases
+        f = tmp_path / "aliases"
+        f.write_text(f"Root: {VALID_HEX}\n")
+        aliases = _read_aliases(str(f))
+        assert "root" in aliases
+
+    def test_returns_empty_when_missing(self, tmp_path):
+        from send_lxmf.sendmail import _read_aliases
+        assert _read_aliases(str(tmp_path / "nope")) == {}
+
+    def test_ignores_invalid_lines(self, tmp_path):
+        from send_lxmf.sendmail import _read_aliases
+        f = tmp_path / "aliases"
+        f.write_text(f"no-colon-here\nroot: {VALID_HEX}\nbad: not_a_hash\n")
+        aliases = _read_aliases(str(f))
+        assert aliases == {"root": [VALID_HEX]}
+
+    def test_multiple_destinations(self, tmp_path):
+        from send_lxmf.sendmail import _read_aliases
+        f = tmp_path / "aliases"
+        f.write_text(f"root: {VALID_HEX}, {ANOTHER_HEX}\n")
+        aliases = _read_aliases(str(f))
+        assert aliases == {"root": [VALID_HEX, ANOTHER_HEX]}
+
+
+class TestResolveRecipient:
+    """Unit tests for _resolve_recipient()."""
+
+    def test_valid_lxmf_address_returned_directly(self, monkeypatch):
+        from send_lxmf.sendmail import _resolve_recipient
+        assert _resolve_recipient(VALID_HEX) == [VALID_HEX]
+
+    def test_alias_lookup(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        f = tmp_path / "aliases"
+        f.write_text(f"root: {VALID_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(f))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope"))
+        from send_lxmf.sendmail import _resolve_recipient
+        assert _resolve_recipient("root") == [VALID_HEX]
+
+    def test_alias_lookup_with_domain(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        f = tmp_path / "aliases"
+        f.write_text(f"root: {VALID_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(f))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope"))
+        from send_lxmf.sendmail import _resolve_recipient
+        assert _resolve_recipient("root@localhost") == [VALID_HEX]
+
+    def test_falls_back_to_default_destination(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        f = tmp_path / "default-destination"
+        f.write_text(f"{VALID_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(tmp_path / "nope"))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(f))
+        from send_lxmf.sendmail import _resolve_recipient
+        assert _resolve_recipient("www-data") == [VALID_HEX]
+
+    def test_returns_empty_when_nothing_configured(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(tmp_path / "nope"))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope2"))
+        from send_lxmf.sendmail import _resolve_recipient
+        assert _resolve_recipient("unknown") == []
+
+    def test_alias_takes_precedence_over_default(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        aliases = tmp_path / "aliases"
+        aliases.write_text(f"root: {ANOTHER_HEX}\n")
+        default = tmp_path / "default-destination"
+        default.write_text(f"{VALID_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(aliases))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(default))
+        from send_lxmf.sendmail import _resolve_recipient
+        assert _resolve_recipient("root") == [ANOTHER_HEX]
+
+    def test_multiple_destinations_from_alias(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        aliases = tmp_path / "aliases"
+        aliases.write_text(f"root: {VALID_HEX}, {ANOTHER_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(aliases))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope"))
+        from send_lxmf.sendmail import _resolve_recipient
+        assert _resolve_recipient("root") == [VALID_HEX, ANOTHER_HEX]
+
+
+class TestSendmailCLIRecipientResolution:
+    """CLI integration tests for alias / default-destination resolution."""
+
+    def test_local_user_resolved_via_alias(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        aliases = tmp_path / "aliases"
+        aliases.write_text(f"root: {VALID_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(aliases))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope"))
+
+        raw = "To: root@localhost\r\nSubject: Alert\r\n\r\nDisk full\r\n"
+        monkeypatch.setattr(sys, "argv", ["sendmail-lxmf"])
+        monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+        _simulate_delivery(monkeypatch)
+
+        with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
+            _run_sendmail()
+            spy.assert_called_once()
+            assert spy.call_args.kwargs["destinations"] == [VALID_HEX]
+
+    def test_local_user_resolved_via_default(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        default = tmp_path / "default-destination"
+        default.write_text(f"{VALID_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(tmp_path / "nope"))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(default))
+
+        raw = "To: nobody@localhost\r\nSubject: Alert\r\n\r\nSomething\r\n"
+        monkeypatch.setattr(sys, "argv", ["sendmail-lxmf"])
+        monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+        _simulate_delivery(monkeypatch)
+
+        with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
+            _run_sendmail()
+            spy.assert_called_once()
+            assert spy.call_args.kwargs["destinations"] == [VALID_HEX]
+
+    def test_cli_local_user_resolved_via_alias(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        aliases = tmp_path / "aliases"
+        aliases.write_text(f"admin: {VALID_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(aliases))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope"))
+
+        raw = "Subject: Hi\r\n\r\nBody\r\n"
+        monkeypatch.setattr(sys, "argv", ["sendmail-lxmf", "admin"])
+        monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+        _simulate_delivery(monkeypatch)
+
+        with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
+            _run_sendmail()
+            spy.assert_called_once()
+            assert spy.call_args.kwargs["destinations"] == [VALID_HEX]
+
+    def test_unresolvable_recipient_exits_1(self, tmp_path, monkeypatch, capsys):
+        import send_lxmf.sendmail as sm
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(tmp_path / "nope"))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope2"))
+
+        raw = "Subject: Hi\r\n\r\nBody\r\n"
+        monkeypatch.setattr(sys, "argv", ["sendmail-lxmf", "unknown_user"])
+        monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+        with pytest.raises(SystemExit) as exc:
+            _run_sendmail()
+        assert exc.value.code == 1
+        assert "could not resolve" in capsys.readouterr().err.lower()
+
+    def test_alias_with_multiple_destinations(self, tmp_path, monkeypatch):
+        import send_lxmf.sendmail as sm
+        aliases = tmp_path / "aliases"
+        aliases.write_text(f"root: {VALID_HEX}, {ANOTHER_HEX}\n")
+        monkeypatch.setattr(sm, "_ALIASES_PATH", str(aliases))
+        monkeypatch.setattr(sm, "_DEFAULT_DEST_PATH", str(tmp_path / "nope"))
+
+        raw = "To: root@localhost\r\nSubject: Alert\r\n\r\nDisk full\r\n"
+        monkeypatch.setattr(sys, "argv", ["sendmail-lxmf"])
+        monkeypatch.setattr(sys, "stdin", io.StringIO(raw))
+        _simulate_delivery(monkeypatch)
+
+        with mock.patch("send_lxmf.sendmail.send_message", wraps=_fake_send) as spy:
+            _run_sendmail()
+            spy.assert_called_once()
+            assert spy.call_args.kwargs["destinations"] == [VALID_HEX, ANOTHER_HEX]
 
 
 # ---------------------------------------------------------------------------

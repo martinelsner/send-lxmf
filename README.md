@@ -67,6 +67,42 @@ Recipient addresses can be specified in several forms:
 - email-style: `b9af7034186731b9f009d06795172a36@lxmf`
 - with display name: `Alice <b9af7034186731b9f009d06795172a36@lxmf>`
 
+When a recipient is not a valid LXMF address (e.g. `root` or
+`www-data@localhost`), sendmail-lxmf resolves it using local configuration
+files:
+
+1. `/etc/lxmf/aliases` — per-user mapping of local names to LXMF destinations
+2. `/etc/lxmf/default-destination` — catch-all fallback destination
+
+This makes it possible to use sendmail-lxmf as a system-wide sendmail
+replacement where services send mail to local users like `root@localhost`.
+
+#### Recipient resolution
+
+Set up a default destination so all local mail goes to one LXMF address:
+
+```bash
+sudo mkdir -p /etc/lxmf
+echo "b9af7034186731b9f009d06795172a36" | sudo tee /etc/lxmf/default-destination
+```
+
+Optionally, map specific local users to different LXMF destinations in
+`/etc/lxmf/aliases` (format: `name: hex_hash`, one per line). Multiple
+destinations can be separated by commas:
+
+```
+# /etc/lxmf/aliases
+root: b9af7034186731b9f009d06795172a36
+admin: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4, b9af7034186731b9f009d06795172a36
+```
+
+Aliases take precedence over the default destination. Lines starting with
+`#` and blank lines are ignored in both files.
+
+#### Examples
+
+#### Examples
+
 Basic usage:
 
 ```bash

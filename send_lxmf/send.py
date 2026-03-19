@@ -32,7 +32,7 @@ def main() -> None:
     content = sys.stdin.read()
 
     send_message(
-        destination_hex=args.destination,
+        destinations=[args.destination],
         content=content,
         identity_path=args.identity,
         display_name=args.display_name,

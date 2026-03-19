@@ -12,16 +12,17 @@ APP_NAME = "send_lxmf"
 TIMEOUT = 30  # seconds to wait for path / identity / delivery
 
 
-def send_message(destination_hex: str, content: str, identity_path: str | None = None,
+def send_message(destinations: list[str], content: str,
+                 identity_path: str | None = None,
                  display_name: str | None = None, title: str = "",
                  prepend_title: bool = True, attachments: list[str] | None = None,
                  rnsconfig: str | None = None) -> None:
-    """Send an LXMF message. Raises SystemExit on errors.
+    """Send an LXMF message to one or more destinations. Raises SystemExit on errors.
 
     Parameters
     ----------
-    destination_hex : str
-        Recipient LXMF address as a hex string.
+    destinations : list[str]
+        Recipient LXMF address(es) as hex strings.
     content : str
         Message body text.
     identity_path : str | None
@@ -38,11 +39,13 @@ def send_message(destination_hex: str, content: str, identity_path: str | None =
     rnsconfig : str | None
         Path to alternative Reticulum config directory.
     """
-    try:
-        destination_hash = bytes.fromhex(destination_hex)
-    except ValueError:
-        print(f"Error: '{destination_hex}' is not a valid hex hash.", file=sys.stderr)
-        sys.exit(1)
+    destination_hashes = []
+    for hex_str in destinations:
+        try:
+            destination_hashes.append(bytes.fromhex(hex_str))
+        except ValueError:
+            print(f"Error: '{hex_str}' is not a valid hex hash.", file=sys.stderr)
+            sys.exit(1)
 
     if not content:
         print("Error: no message content provided.", file=sys.stderr)
@@ -76,38 +79,6 @@ def send_message(destination_hex: str, content: str, identity_path: str | None =
         router.announce(source.hash)
 
     RNS.log(f"Sender  : {RNS.prettyhexrep(source.hash)}")
-    RNS.log(f"Target  : {RNS.prettyhexrep(destination_hash)}")
-
-    # Resolve path to destination
-    if not RNS.Transport.has_path(destination_hash):
-        RNS.log("Requesting path to destination...")
-        RNS.Transport.request_path(destination_hash)
-
-    deadline = time.time() + TIMEOUT
-    while not RNS.Transport.has_path(destination_hash):
-        if time.time() > deadline:
-            print("Error: timed out waiting for path to destination.", file=sys.stderr)
-            sys.exit(1)
-        time.sleep(0.2)
-
-    # Resolve recipient identity
-    recipient_identity = RNS.Identity.recall(destination_hash)
-    if recipient_identity is None:
-        deadline = time.time() + TIMEOUT
-        while recipient_identity is None:
-            if time.time() > deadline:
-                print("Error: timed out waiting for recipient identity.", file=sys.stderr)
-                sys.exit(1)
-            time.sleep(0.2)
-            recipient_identity = RNS.Identity.recall(destination_hash)
-
-    destination = RNS.Destination(
-        recipient_identity,
-        RNS.Destination.OUT,
-        RNS.Destination.SINGLE,
-        "lxmf",
-        "delivery",
-    )
 
     if prepend_title and title:
         content = title + "\n\n" + content
@@ -125,41 +96,75 @@ def send_message(destination_hex: str, content: str, identity_path: str | None =
                 file_list.append([os.path.basename(path), f.read()])
         fields[LXMF.FIELD_FILE_ATTACHMENTS] = file_list
 
-    message = LXMF.LXMessage(
-        destination,
-        source,
-        content,
-        title=title,
-        fields=fields,
-        desired_method=LXMF.LXMessage.DIRECT,
-    )
+    for destination_hash in destination_hashes:
+        RNS.log(f"Target  : {RNS.prettyhexrep(destination_hash)}")
 
-    delivered = False
-    failed = False
+        # Resolve path to destination
+        if not RNS.Transport.has_path(destination_hash):
+            RNS.log("Requesting path to destination...")
+            RNS.Transport.request_path(destination_hash)
 
-    def on_delivered(msg):
-        nonlocal delivered
-        delivered = True
+        deadline = time.time() + TIMEOUT
+        while not RNS.Transport.has_path(destination_hash):
+            if time.time() > deadline:
+                print("Error: timed out waiting for path to destination.", file=sys.stderr)
+                sys.exit(1)
+            time.sleep(0.2)
 
-    def on_failed(msg):
-        nonlocal failed
-        failed = True
+        # Resolve recipient identity
+        recipient_identity = RNS.Identity.recall(destination_hash)
+        if recipient_identity is None:
+            deadline = time.time() + TIMEOUT
+            while recipient_identity is None:
+                if time.time() > deadline:
+                    print("Error: timed out waiting for recipient identity.", file=sys.stderr)
+                    sys.exit(1)
+                time.sleep(0.2)
+                recipient_identity = RNS.Identity.recall(destination_hash)
 
-    message.register_delivery_callback(on_delivered)
-    message.register_failed_callback(on_failed)
+        destination = RNS.Destination(
+            recipient_identity,
+            RNS.Destination.OUT,
+            RNS.Destination.SINGLE,
+            "lxmf",
+            "delivery",
+        )
 
-    router.handle_outbound(message)
-    RNS.log("Message queued, waiting for delivery...")
+        message = LXMF.LXMessage(
+            destination,
+            source,
+            content,
+            title=title,
+            fields=fields,
+            desired_method=LXMF.LXMessage.DIRECT,
+        )
 
-    deadline = time.time() + TIMEOUT
-    while not delivered and not failed:
-        if time.time() > deadline:
-            print("Error: timed out waiting for delivery confirmation.", file=sys.stderr)
+        delivered = False
+        failed = False
+
+        def on_delivered(msg):
+            nonlocal delivered
+            delivered = True
+
+        def on_failed(msg):
+            nonlocal failed
+            failed = True
+
+        message.register_delivery_callback(on_delivered)
+        message.register_failed_callback(on_failed)
+
+        router.handle_outbound(message)
+        RNS.log("Message queued, waiting for delivery...")
+
+        deadline = time.time() + TIMEOUT
+        while not delivered and not failed:
+            if time.time() > deadline:
+                print("Error: timed out waiting for delivery confirmation.", file=sys.stderr)
+                sys.exit(1)
+            time.sleep(0.2)
+
+        if delivered:
+            RNS.log("Message delivered successfully.")
+        else:
+            print("Error: message delivery failed.", file=sys.stderr)
             sys.exit(1)
-        time.sleep(0.2)
-
-    if delivered:
-        RNS.log("Message delivered successfully.")
-    else:
-        print("Error: message delivery failed.", file=sys.stderr)
-        sys.exit(1)
