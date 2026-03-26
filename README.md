@@ -15,7 +15,7 @@ See [INSTALL.md](INSTALL.md) for other methods (Debian 32-bit, Termux, NixOS) an
 ### send-lxmf
 
 ```bash
-echo "Hello there" | send-lxmf --destination <recipient_hex_hash>
+echo "Hello there" | send-lxmf <recipient_hex_hash>
 ```
 
 See [doc/send-lxmf.md](doc/send-lxmf.md) for all options.

@@ -22,7 +22,7 @@ def test_no_args_prints_help(monkeypatch, capsys):
 
 
 def test_invalid_hex_exits_1(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", "not_hex"])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", "not_hex"])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     with pytest.raises(SystemExit) as exc:
         _run_main()
@@ -31,7 +31,7 @@ def test_invalid_hex_exits_1(monkeypatch, capsys):
 
 
 def test_empty_stdin_exits_1(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO(""))
     with pytest.raises(SystemExit) as exc:
         _run_main()
@@ -41,7 +41,7 @@ def test_empty_stdin_exits_1(monkeypatch, capsys):
 
 def test_missing_identity_file_exits_1(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", [
-        "send-lxmf", "--destination", VALID_HEX,
+        "send-lxmf", VALID_HEX,
         "--identity", "/nonexistent/path/id",
     ])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
@@ -56,7 +56,7 @@ def test_loads_identity_from_explicit_path(monkeypatch, tmp_path):
     id_file = tmp_path / "my_id"
     id_file.write_text("fake")
     monkeypatch.setattr(sys, "argv", [
-        "send-lxmf", "--destination", VALID_HEX,
+        "send-lxmf", VALID_HEX,
         "--identity", str(id_file),
     ])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
@@ -68,7 +68,7 @@ def test_loads_identity_from_explicit_path(monkeypatch, tmp_path):
 
 def test_creates_new_identity_when_none_exists(monkeypatch, tmp_path):
     import RNS
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: str(tmp_path))
 
@@ -84,7 +84,7 @@ def test_loads_existing_identity_from_data_dir(monkeypatch, tmp_path):
     import RNS
     id_file = tmp_path / "identity"
     id_file.write_text("fake")
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: str(tmp_path))
     _simulate_delivery(monkeypatch)
@@ -95,7 +95,7 @@ def test_loads_existing_identity_from_data_dir(monkeypatch, tmp_path):
 
 def test_failed_delivery_exits_1(monkeypatch, capsys):
     import LXMF
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
 
@@ -114,7 +114,7 @@ def test_failed_delivery_exits_1(monkeypatch, capsys):
 def test_path_timeout_exits_1(monkeypatch, capsys):
     """With TIMEOUT=0 and no path, opportunistic delivery times out."""
     import RNS
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
     monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
@@ -128,7 +128,7 @@ def test_path_timeout_exits_1(monkeypatch, capsys):
 
 def test_identity_timeout_exits_1(monkeypatch, capsys):
     import RNS
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
     monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
@@ -144,7 +144,7 @@ def test_identity_timeout_exits_1(monkeypatch, capsys):
 def test_delivery_timeout_exits_1(monkeypatch, capsys):
     """With TIMEOUT=0 and no callback fired, delivery times out."""
     import LXMF
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", "--destination", VALID_HEX])
+    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
     monkeypatch.setattr("send_lxmf.lib.user_data_dir", lambda *a, **kw: "/tmp")
     monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)

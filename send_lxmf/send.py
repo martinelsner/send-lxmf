@@ -4,8 +4,9 @@ Send an LXMF message over the Reticulum network.
 Message content is read from standard input.
 
 Usage:
-    echo "Hello there" | send-lxmf --destination b9af7034186731b9f009d06795172a36
-    send-lxmf --destination b9af7034186731b9f009d06795172a36 --identity ~/.reticulum/my_id < message.txt
+    echo "Hello there" | send-lxmf b9af7034186731b9f009d06795172a36
+    echo "Hello there" | send-lxmf hash1 hash2 hash3
+    send-lxmf b9af7034186731b9f009d06795172a36 --identity ~/.reticulum/my_id < message.txt
 """
 
 import argparse
@@ -18,7 +19,7 @@ from send_lxmf.lib import send_message
 def main() -> None:
     parser = argparse.ArgumentParser(description="Send an LXMF message (content read from stdin).")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("--destination", required=True, help="Recipient LXMF address as hex hash")
+    parser.add_argument("destination", nargs="+", help="Recipient LXMF address(es) as hex hash")
     parser.add_argument("--identity", default=None, help="Path to a Reticulum identity file to use as sender")
     parser.add_argument("--display-name", default=None, help="Sender name to announce (visible to recipients)")
     parser.add_argument("--title", default="", help="Message title (not shown by all clients)")
@@ -36,7 +37,7 @@ def main() -> None:
     content = sys.stdin.read()
 
     send_message(
-        destinations=[args.destination],
+        destinations=args.destination,
         content=content,
         identity_path=args.identity,
         display_name=args.display_name,

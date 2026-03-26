@@ -6,7 +6,7 @@ from standard input.
 ## Basic usage
 
 ```bash
-echo "Hello there" | send-lxmf --destination <recipient_hex_hash>
+echo "Hello there" | send-lxmf <recipient_hex_hash>
 ```
 
 ## Options
@@ -17,7 +17,7 @@ Specify a sender identity file. If omitted, one is created and stored
 automatically.
 
 ```bash
-send-lxmf --destination <recipient_hex_hash> --identity ~/.reticulum/my_id < message.txt
+send-lxmf <recipient_hex_hash> --identity ~/.reticulum/my_id < message.txt
 ```
 
 ### Display name
@@ -25,7 +25,7 @@ send-lxmf --destination <recipient_hex_hash> --identity ~/.reticulum/my_id < mes
 Set a display name so recipients see who sent the message:
 
 ```bash
-echo "Hi" | send-lxmf --destination <recipient_hex_hash> --display-name "Alice"
+echo "Hi" | send-lxmf <recipient_hex_hash> --display-name "Alice"
 ```
 
 ### Title
@@ -36,8 +36,8 @@ display the title field (like MeshChat) still show it. Use `--no-prepend-title`
 to disable this:
 
 ```bash
-echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder"
-echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "Reminder" --no-prepend-title
+echo "Meeting at noon" | send-lxmf <recipient_hex_hash> --title "Reminder"
+echo "Meeting at noon" | send-lxmf <recipient_hex_hash> --title "Reminder" --no-prepend-title
 ```
 
 ### Attachments
@@ -45,7 +45,7 @@ echo "Meeting at noon" | send-lxmf --destination <recipient_hex_hash> --title "R
 Attach one or more files:
 
 ```bash
-echo "See attached" | send-lxmf --destination <recipient_hex_hash> --attach report.pdf --attach photo.jpg
+echo "See attached" | send-lxmf <recipient_hex_hash> --attach report.pdf --attach photo.jpg
 ```
 
 ### Reticulum config
@@ -53,7 +53,7 @@ echo "See attached" | send-lxmf --destination <recipient_hex_hash> --attach repo
 Use an alternative Reticulum config directory:
 
 ```bash
-echo "Hi" | send-lxmf --destination <recipient_hex_hash> --rnsconfig /path/to/config
+echo "Hi" | send-lxmf <recipient_hex_hash> --rnsconfig /path/to/config
 ```
 
 ### Propagation node fallback
@@ -62,7 +62,7 @@ If direct delivery fails, fall back to sending via a propagation node
 (store-and-forward). This is useful when the recipient may be offline:
 
 ```bash
-echo "Hi" | send-lxmf --destination <recipient_hex_hash> --propagation-node <node_hex_hash>
+echo "Hi" | send-lxmf <recipient_hex_hash> --propagation-node <node_hex_hash>
 ```
 
 The message is first attempted via direct (opportunistic) delivery. Only if
