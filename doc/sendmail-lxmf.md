@@ -34,38 +34,46 @@ Recipient addresses can be specified in several forms:
 ## Recipient resolution
 
 When a recipient is not a valid LXMF address (e.g. `root` or
-`www-data@localhost`), sendmail-lxmf resolves it using local configuration
-files, checked in this order:
-
-1. `/etc/lxmf/aliases` — per-user mapping of local names to LXMF destinations
-2. `/etc/lxmf/default-destination` — catch-all fallback destination
+`www-data@localhost`), sendmail-lxmf falls back to the default destination
+configured in `/etc/lxmf-sender.conf`.
 
 This makes it possible to use sendmail-lxmf as a system-wide sendmail
 replacement where services send mail to local users like `root@localhost`.
 
-### Default destination
+### Configuration file
 
-Set up a default destination so all local mail goes to one LXMF address:
+Create `/etc/lxmf-sender.conf` with an INI-style format:
+
+```ini
+[send-lxmf]
+default-destination = b9af7034186731b9f009d06795172a36
+propagation-node = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+rnsconfig = /var/lib/reticulum/rnsd
+data-dir = /var/lib/lxmf-sender
+```
+
+A template configuration file with all options and explanations is provided
+in the package. Copy it to `/etc/lxmf-sender.conf` and uncomment the options you need:
 
 ```bash
-sudo mkdir -p /etc/lxmf
-echo "b9af7034186731b9f009d06795172a36" | sudo tee /etc/lxmf/default-destination
+cp $(python -c "import lxmf_sender; import os; print(os.path.dirname(lxmf_sender.__file__))")/send-lxmf.conf /etc/lxmf-sender.conf
+nano /etc/lxmf-sender.conf  # uncomment and set your options
 ```
 
-### Aliases
+#### Options
 
-Map specific local users to different LXMF destinations in
-`/etc/lxmf/aliases` (format: `name: hex_hash`, one per line). Multiple
-destinations can be separated by commas:
+All options are under the `[send-lxmf]` section. Option names match the
+corresponding command-line arguments.
 
-```text
-# /etc/lxmf/aliases
-root: b9af7034186731b9f009d06795172a36
-admin: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4, b9af7034186731b9f009d06795172a36
-```
-
-Aliases take precedence over the default destination. Lines starting with
-`#` and blank lines are ignored in both files.
+| Option | Description |
+|--------|-------------|
+| `default-destination` | Default LXMF destination address for non-address recipients (sendmail-lxmf only) |
+| `propagation-node` | LXMF propagation node hash for store-and-forward delivery |
+| `rnsconfig` | Reticulum config directory |
+| `data-dir` | Directory for identity and LXMF router storage (default: per-user) |
+| `display-name` | Sender display name |
+| `prepend-title` | Prepend title to message body (default: true) |
+| `timeout` | Timeout in seconds for delivery attempts |
 
 ## Options
 
@@ -98,19 +106,9 @@ If direct delivery fails, fall back to sending via a propagation node
 sendmail-lxmf --propagation-node <node_hex_hash> < message.eml
 ```
 
-The propagation node can also be configured system-wide in
-`/etc/lxmf/propagation-node` (same format as `default-destination` — a
-single hex hash, with optional comments). The `--propagation-node` flag
-takes precedence over the config file.
-
-```bash
-sudo mkdir -p /etc/lxmf
-echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/lxmf/propagation-node
-```
-
-The message is first attempted via direct (opportunistic) delivery. If
-that fails, it is handed off to the propagation node.
-
+The propagation node can also be configured in `/etc/lxmf-sender.conf`
+as `propagation-node`. The `--propagation-node` flag takes precedence over
+the config file.
 
 ## NixOS
 

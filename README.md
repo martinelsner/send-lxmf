@@ -1,14 +1,24 @@
-# send-lxmf
+# lxmf-sender
 
 Send LXMF messages over the Reticulum network from the command line.
 
 ## Installation
 
+### With systemd (Debian, Ubuntu, Alpine)
+
+Use the installer scripts to set up as a systemd/OpenRC service:
+
 ```bash
-pipx install https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
+# Debian/Ubuntu
+sudo bash installer/debian/install.sh
+
+# Alpine Linux
+sudo sh installer/alpine/install.sh
 ```
 
-See [INSTALL.md](INSTALL.md) for other methods (Debian 32-bit, Termux, NixOS) and troubleshooting.
+This requires [reticulum-installer](https://codeberg.org/melsner/reticulum-installer) to be installed first (provides the shared virtualenv at `/opt/reticulum` and the `reticulum` system user).
+
+See [INSTALL.md](INSTALL.md) for manual installation methods.
 
 ## Usage
 
@@ -29,8 +39,38 @@ and delivers it over LXMF:
 sendmail-lxmf b9af7034186731b9f009d06795172a36 < message.eml
 ```
 
-See [doc/sendmail-lxmf.md](doc/sendmail-lxmf.md) for recipient resolution,
-address formats, and all options.
+See [doc/sendmail-lxmf.md](doc/sendmail-lxmf.md) for all options.
+
+## Configuration
+
+Configuration file: `/etc/lxmf-sender.conf`
+
+```ini
+[lxmf-sender]
+# data-dir = /var/lib/reticulum/lxmf-sender
+# identity = /var/lib/reticulum/lxmf-sender/identity
+# daemon-socket = /run/lxmf-sender/lxmf-sender.sock
+# rnsconfig = /var/lib/reticulum/rnsd
+# propagation-node =
+# display-name =
+```
+
+## Environment Variables
+
+All options can be set via environment variables with the prefix `LXMFS_`:
+
+| Variable | Description |
+|----------|-------------|
+| `LXMFS_SOCKET` | Daemon socket path |
+| `LXMFS_CONFIG` | Config file path (server only) |
+| `LXMFS_DATA_DIR` | Data directory (server only) |
+| `LXMFS_IDENTITY` | Identity file path (server only) |
+| `LXMFS_RNSCONFIG` | Reticulum config directory (server only) |
+| `LXMFS_PROPAGATION_NODE` | Default propagation node (server only) |
+| `LXMFS_DISPLAY_NAME` | Sender display name (server only) |
+| `LXMFS_PID_FILE` | PID file path (server only) |
+
+Priority: command-line option > environment variable > config file
 
 ## Development Setup
 
@@ -53,3 +93,4 @@ make help      # list all available targets
 
 - [Reticulum](https://reticulum.network/) — the cryptography-based networking stack
 - [LXMF](https://github.com/markqvist/LXMF) — Lightweight Extensible Message Format for Reticulum
+- [reticulum-installer](https://codeberg.org/melsner/reticulum-installer) — Installs rnsd and lxmd

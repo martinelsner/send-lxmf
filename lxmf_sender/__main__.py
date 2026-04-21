@@ -1,4 +1,4 @@
-from send_lxmf.send import main
+from lxmf_sender.send import main
 
 if __name__ == "__main__":
     main()

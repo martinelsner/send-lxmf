@@ -1,0 +1,32 @@
+#!/bin/sh
+
+name="lxmf-sender"
+command="/opt/reticulum/bin/lxmf-sender"
+command_args="--config /etc/lxmf-sender.conf"
+pidfile="/run/lxmf-sender.pid"
+user="reticulum"
+group="reticulum"
+directory="/var/lib/reticulum/lxmf-sender"
+
+depend() {
+    need rnsd
+}
+
+start_pre() {
+    checkpath --directory --mode 755 --owner "$user:$group" /run/lxmf-sender
+    checkpath --directory --mode 750 --owner "$user:$group" "$directory"
+}
+
+stop() {
+    if [ -f "$pidfile" ]; then
+        kill -TERM $(cat "$pidfile") || true
+        rm -f "$pidfile"
+    else
+        pkill -f "$command" || true
+    fi
+}
+
+reload() {
+    stop
+    start
+}

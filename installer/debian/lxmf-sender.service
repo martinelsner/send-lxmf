@@ -1,0 +1,23 @@
+[Unit]
+Description=LXMF Message Server
+After=rnsd.service
+Requires=rnsd.service
+
+[Service]
+Type=simple
+User=reticulum
+Group=reticulum
+RuntimeDirectory=lxmf-sender
+RuntimeDirectoryMode=0755
+ExecStart=/usr/bin/lxmf-sender --config /etc/lxmf-sender.conf
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/reticulum/lxmf-sender
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

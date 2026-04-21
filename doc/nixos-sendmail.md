@@ -10,7 +10,7 @@ The setup involves three pieces:
 
 1. Installing `send-lxmf` and creating a wrapper that exposes
    `sendmail-lxmf` as `/bin/sendmail`.
-2. Configuring `/etc/lxmf/default-destination` so local recipients
+2. Configuring `/etc/lxmf-sender.conf` so local recipients
    (like `root`) resolve to an LXMF address.
 3. Optionally placing the wrapper in `/run/wrappers/bin/sendmail` for
    services that hardcode that path.
@@ -40,10 +40,13 @@ in
     sendmail-lxmf-wrapper
   ];
 
-  # Default LXMF destination for all local mail.
+  # LXMF destination for all local mail.
   # Replace with your own LXMF destination hash.
-  environment.etc."lxmf/default-destination" = {
-    text = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4\n";
+  environment.etc."lxmf-sender.conf" = {
+    text = ''
+      [send-lxmf]
+      default-destination = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+    '';
     mode = "0644";
   };
 
@@ -58,24 +61,6 @@ in
 }
 ```
 
-## Per-user aliases (optional)
-
-If you need different local users to map to different LXMF destinations,
-add an aliases file:
-
-```nix
-environment.etc."lxmf/aliases" = {
-  text = ''
-    root: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
-    admin: b9af7034186731b9f009d06795172a36
-  '';
-  mode = "0644";
-};
-```
-
-Aliases take precedence over the default destination. See
-[sendmail-lxmf.md](sendmail-lxmf.md) for the full format.
-
 ## Propagation node fallback (optional)
 
 If you have a local or known LXMF propagation node, you can configure it
@@ -83,8 +68,12 @@ so that messages are retried via store-and-forward when direct delivery
 fails:
 
 ```nix
-environment.etc."lxmf/propagation-node" = {
-  text = "c4d5e6f7a8b9c4d5e6f7a8b9c4d5e6f7\n";
+environment.etc."lxmf-sender.conf" = {
+  text = ''
+    [send-lxmf]
+    default-destination = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+    propagation-node = c4d5e6f7a8b9c4d5e6f7a8b9c4d5e6f7
+  '';
   mode = "0644";
 };
 ```
@@ -98,8 +87,8 @@ delivery. If that fails, it is handed off to the propagation node.
 When a service like cron or smartd sends mail to `root@localhost`, it
 invokes `/bin/sendmail` (or `/run/wrappers/bin/sendmail`), which is now
 `sendmail-lxmf`. Since `root` is not a valid LXMF hex hash, sendmail-lxmf
-checks `/etc/lxmf/aliases` first, then falls back to
-`/etc/lxmf/default-destination`, and delivers the message over LXMF.
+falls back to the `default-destination` configured in `/etc/lxmf-sender.conf`,
+and delivers the message over LXMF.
 
 ## Notes
 
