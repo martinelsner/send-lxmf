@@ -27,7 +27,7 @@ from typing import NamedTuple
 from markdownify import markdownify as md
 
 from send_lxmf import __version__
-from send_lxmf.lib import send_message
+from send_lxmf.lib import LXMFError, send_message
 
 # Matches a bare 32-byte hex hash (the LXMF address format).
 _HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
@@ -70,8 +70,8 @@ def _extract_lxmf_address(value: str | None) -> str | None:
     return None
 
 
-def _read_default_destination(path: str = _DEFAULT_DEST_PATH) -> str | None:
-    """Read the default LXMF destination from a config file.
+def _read_single_address(path: str) -> str | None:
+    """Read a single hex address from a config file.
 
     The file should contain a single hex hash, optionally with whitespace
     or comments (lines starting with ``#``).
@@ -90,24 +90,12 @@ def _read_default_destination(path: str = _DEFAULT_DEST_PATH) -> str | None:
     return None
 
 
-def _read_propagation_node(path: str = _PROPAGATION_NODE_PATH) -> str | None:
-    """Read the propagation node LXMF address from a config file.
+def _read_default_destination(path: str = _DEFAULT_DEST_PATH) -> str | None:
+    return _read_single_address(path)
 
-    Same format as ``default-destination``: a single hex hash, with
-    optional whitespace and ``#`` comments.
-    """
-    try:
-        with open(path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                addr = _extract_lxmf_address(line)
-                if addr:
-                    return addr
-    except FileNotFoundError:
-        pass
-    return None
+
+def _read_propagation_node(path: str = _PROPAGATION_NODE_PATH) -> str | None:
+    return _read_single_address(path)
 
 
 def _read_aliases(path: str = _ALIASES_PATH) -> dict[str, list[str]]:
@@ -144,9 +132,11 @@ def _read_aliases(path: str = _ALIASES_PATH) -> dict[str, list[str]]:
     return aliases
 
 
-def _resolve_recipient(recipient: str,
-                       aliases_path: str | None = None,
-                       default_dest_path: str | None = None) -> list[str]:
+def _resolve_recipient(
+    recipient: str,
+    aliases_path: str | None = None,
+    default_dest_path: str | None = None,
+) -> list[str]:
     """Resolve a recipient string to one or more LXMF destination hashes.
 
     Resolution order:
@@ -157,35 +147,23 @@ def _resolve_recipient(recipient: str,
 
     Returns an empty list when the recipient cannot be resolved.
     """
-    if aliases_path is None:
-        aliases_path = _ALIASES_PATH
-    if default_dest_path is None:
-        default_dest_path = _DEFAULT_DEST_PATH
-
-    # Already a valid LXMF address?
     addr = _extract_lxmf_address(recipient)
     if addr:
         return [addr]
 
-    # Extract local part (e.g. "root" from "root@localhost")
-    local = recipient.strip()
-    if "@" in local:
-        local = local.split("@", 1)[0]
-    local = local.strip().lower()
+    local = recipient.split("@", 1)[0].strip().lower()
 
-    # Check aliases
-    if local:
-        aliases = _read_aliases(aliases_path)
-        if local in aliases:
-            return aliases[local]
+    aliases = _read_aliases(aliases_path or _ALIASES_PATH)
+    if local in aliases:
+        return aliases[local]
 
-    # Fall back to default destination
-    default = _read_default_destination(default_dest_path)
+    default = _read_default_destination(default_dest_path or _DEFAULT_DEST_PATH)
     return [default] if default else []
 
 
 class ParsedEmail(NamedTuple):
     """Result of parsing an RFC 2822 email."""
+
     to: str
     from_name: str | None
     subject: str
@@ -268,32 +246,80 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="sendmail-lxmf",
         description="sendmail-compatible LXMF delivery agent. "
-                    "Reads an RFC 2822 message from stdin.",
+        "Reads an RFC 2822 message from stdin.",
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
-        "recipients", nargs="*",
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
+    parser.add_argument(
+        "recipients",
+        nargs="*",
         help="Recipient LXMF address(es) as hex hash. "
-             "Overrides the To: header when given.",
+        "Overrides the To: header when given.",
     )
     parser.add_argument(
-        "--identity", default=None,
+        "--identity",
+        default=None,
         help="Path to a Reticulum identity file to use as sender",
     )
     parser.add_argument(
-        "--display-name", default=None,
+        "--display-name",
+        default=None,
         help="Sender display name (overrides From: header)",
     )
     # Accept (and ignore) common sendmail flags for compatibility.
-    parser.add_argument("-i", action="store_true", help="(ignored, accepted for sendmail compatibility)")
-    parser.add_argument("-t", action="store_true", help="Read recipients from headers (default behaviour)")
-    parser.add_argument("-f", "--from", dest="sender", default=None, help="(ignored, accepted for sendmail compatibility)")
-    parser.add_argument("-F", dest="full_name", default=None, help="Sender full name (alias for --display-name)")
-    parser.add_argument("-o", dest="sendmail_opt", action="append", help="(ignored, accepted for sendmail compatibility)")
-    parser.add_argument("--prepend-title", action=argparse.BooleanOptionalAction, default=True, help="Prepend the title to the message body, separated by a blank line (default: true)")
-    parser.add_argument("--rnsconfig", default=None, metavar="RNSCONFIG", help="Path to alternative Reticulum config directory")
-    parser.add_argument("--propagation-node", default=None, metavar="HEX_HASH", help="Propagation node to fall back to if direct delivery fails")
-    parser.add_argument("--timeout", type=int, default=None, metavar="SECONDS", help="Seconds to wait for delivery (default: 15)")
+    parser.add_argument(
+        "-i", action="store_true", help="(ignored, accepted for sendmail compatibility)"
+    )
+    parser.add_argument(
+        "-t",
+        action="store_true",
+        help="Read recipients from headers (default behaviour)",
+    )
+    parser.add_argument(
+        "-f",
+        "--from",
+        dest="sender",
+        default=None,
+        help="(ignored, accepted for sendmail compatibility)",
+    )
+    parser.add_argument(
+        "-F",
+        dest="full_name",
+        default=None,
+        help="Sender full name (alias for --display-name)",
+    )
+    parser.add_argument(
+        "-o",
+        dest="sendmail_opt",
+        action="append",
+        help="(ignored, accepted for sendmail compatibility)",
+    )
+    parser.add_argument(
+        "--prepend-title",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Prepend the title to the message body, separated by a blank line (default: true)",
+    )
+    parser.add_argument(
+        "--rnsconfig",
+        default=None,
+        metavar="RNSCONFIG",
+        help="Path to alternative Reticulum config directory",
+    )
+    parser.add_argument(
+        "--propagation-node",
+        default=None,
+        metavar="HEX_HASH",
+        help="Propagation node to fall back to if direct delivery fails",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        metavar="SECONDS",
+        help="Seconds to wait for delivery (default: 15)",
+    )
 
     args = parser.parse_args()
 
@@ -310,7 +336,10 @@ def main() -> None:
         for r in args.recipients:
             addrs = _resolve_recipient(r)
             if not addrs:
-                print(f"Error: could not resolve '{r}' to an LXMF address.", file=sys.stderr)
+                print(
+                    f"Error: could not resolve '{r}' to an LXMF address.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
             destinations.extend(addrs)
     elif parsed.to:
@@ -319,28 +348,35 @@ def main() -> None:
             destinations.extend(addrs)
 
     if not destinations:
-        print("Error: no recipient specified (provide on command line or in To: header).", file=sys.stderr)
+        print(
+            "Error: no recipient specified (provide on command line or in To: header).",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     display_name = args.display_name or args.full_name or parsed.from_name
     propagation_node = args.propagation_node or _read_propagation_node()
 
     try:
-        send_message(
-            destinations=destinations,
-            content=parsed.body,
-            identity_path=args.identity,
-            display_name=display_name,
-            title=parsed.subject,
-            prepend_title=args.prepend_title,
-            attachments=parsed.attachments or None,
-            rnsconfig=args.rnsconfig,
-            propagation_node=propagation_node,
-            timeout=args.timeout,
-        )
-    finally:
-        if parsed.tmp_dir:
-            shutil.rmtree(parsed.tmp_dir, ignore_errors=True)
+        try:
+            send_message(
+                destinations=destinations,
+                content=parsed.body,
+                identity_path=args.identity,
+                display_name=display_name,
+                title=parsed.subject,
+                prepend_title=args.prepend_title,
+                attachments=parsed.attachments or None,
+                rnsconfig=args.rnsconfig,
+                propagation_node=propagation_node,
+                timeout=args.timeout,
+            )
+        finally:
+            if parsed.tmp_dir:
+                shutil.rmtree(parsed.tmp_dir, ignore_errors=True)
+    except LXMFError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 {
-  pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-25.11.tar.gz") {}
+  pkgs ? import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-25.11.tar.gz") { },
 }:
 
 pkgs.mkShell {
@@ -9,5 +9,13 @@ pkgs.mkShell {
     pkgs.gnumake
     pkgs.python3
     pkgs.uv
+    pkgs.zsh
   ];
+
+  shellHook = ''
+    make venv
+    source .venv/bin/activate
+    exec zsh
+  '';
+
 }
