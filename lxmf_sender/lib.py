@@ -7,7 +7,6 @@ import RNS
 DEFAULT_SOCKET_PATH = "/run/lxmf-sender/lxmf-sender.sock"
 DEFAULT_DATA_DIR = "/var/lib/reticulum/lxmf-sender"
 DEFAULT_IDENTITY_PATH = "/var/lib/reticulum/lxmf-sender/identity"
-DEFAULT_RNSD_CONFIG = "/var/lib/reticulum/rnsd"
 
 
 class LXMFError(Exception):

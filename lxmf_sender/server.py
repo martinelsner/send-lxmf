@@ -20,7 +20,6 @@ import RNS
 from lxmf_sender.lib import (
     DEFAULT_DATA_DIR,
     DEFAULT_IDENTITY_PATH,
-    DEFAULT_RNSD_CONFIG,
     DEFAULT_SOCKET_PATH,
     DeliveryError,
     _parse_hex_hash,
@@ -91,10 +90,9 @@ class LXMDaemon:
 
         RNS.log(f"Data dir: {self.data_dir}")
         RNS.log(f"Socket   : {self.socket_path}")
-        RNS.log(f"RNS config: {self.rnsconfig or DEFAULT_RNSD_CONFIG}")
+        RNS.log(f"RNS config: {self.rnsconfig or 'default'}")
 
-        rns_config = self.rnsconfig or DEFAULT_RNSD_CONFIG
-        reticulum = RNS.Reticulum(configdir=rns_config)
+        reticulum = RNS.Reticulum(configdir=self.rnsconfig)
 
         sender_identity = self._load_or_create_identity()
 
@@ -325,7 +323,10 @@ class LXMDaemon:
         result = await loop.run_in_executor(None, _send_sync)
 
         if isinstance(result, Exception):
-            return {"status": "error", "error": str(result)}
+            import traceback
+
+            err_msg = str(result) or repr(result) or "unknown error"
+            return {"status": "error", "error": err_msg}
 
         return {"status": "queued"}
 

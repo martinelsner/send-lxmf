@@ -18,7 +18,7 @@ pkgs.mkShell {
 
   LXMFS_DATA_DIR = "${workbenchDir}/data";
   LXMFS_SOCKET = "${workbenchDir}/socket/lxmf-sender.sock";
-  LXMFS_RNSCONFIG = "${workbenchDir}/rnsd";
+  # LXMFS_RNSCONFIG = "${workbenchDir}/rnsd";
 
   shellHook = ''
     mkdir -p ${workbenchDir}/data ${workbenchDir}/socket ${workbenchDir}/rnsd
