@@ -12,7 +12,7 @@ sudo bash installer/debian/install.sh
 sudo sh installer/alpine/install.sh
 ```
 
-**Prerequisite:** Install [reticulum-installer](https://codeberg.org/melsner/reticulum-installer) first. This provides:
+**Recommended:** Install [reticulum-installer](https://codeberg.org/melsner/reticulum-installer) first. This provides:
 
 - Virtual environment at `/opt/reticulum`
 - `reticulum` system user
