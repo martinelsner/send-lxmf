@@ -1,4 +1,5 @@
 __pycache__/
+.kilo
 .pytest_cache/
 .ruff_cache
 .venv/
