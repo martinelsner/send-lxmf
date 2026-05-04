@@ -44,7 +44,7 @@ in
   # Replace with your own LXMF destination hash.
   environment.etc."lxmf-sender.conf" = {
     text = ''
-      [send-lxmf]
+      [lxmf-sender]
       default-destination = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
     '';
     mode = "0644";
@@ -70,7 +70,7 @@ fails:
 ```nix
 environment.etc."lxmf-sender.conf" = {
   text = ''
-    [send-lxmf]
+    [lxmf-sender]
     default-destination = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
     propagation-node = c4d5e6f7a8b9c4d5e6f7a8b9c4d5e6f7
   '';

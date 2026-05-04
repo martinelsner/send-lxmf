@@ -45,7 +45,7 @@ replacement where services send mail to local users like `root@localhost`.
 Create `/etc/lxmf-sender.conf` with an INI-style format:
 
 ```ini
-[send-lxmf]
+[lxmf-sender]
 default-destination = b9af7034186731b9f009d06795172a36
 propagation-node = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
 rnsconfig = /var/lib/reticulum/rnsd
@@ -56,13 +56,13 @@ A template configuration file with all options and explanations is provided
 in the package. Copy it to `/etc/lxmf-sender.conf` and uncomment the options you need:
 
 ```bash
-cp $(python -c "import lxmf_sender; import os; print(os.path.dirname(lxmf_sender.__file__))")/send-lxmf.conf /etc/lxmf-sender.conf
+cp $(python -c "import lxmf_sender; import os; print(os.path.dirname(lxmf_sender.__file__))")/lxmf-sender.conf /etc/lxmf-sender.conf
 nano /etc/lxmf-sender.conf  # uncomment and set your options
 ```
 
 #### Options
 
-All options are under the `[send-lxmf]` section. Option names match the
+All options are under the `[lxmf-sender]` section. Option names match the
 corresponding command-line arguments.
 
 | Option | Description |

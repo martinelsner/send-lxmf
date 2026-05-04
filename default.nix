@@ -2,7 +2,7 @@
 
 let
   python = pkgs.python3;
-  versionFile = builtins.readFile ./send_lxmf/__init__.py;
+  versionFile = builtins.readFile ./lxmf_sender/__init__.py;
   version = builtins.head (builtins.match ''.*__version__ = "([^"]+)".*'' versionFile);
 in
 python.pkgs.buildPythonApplication {

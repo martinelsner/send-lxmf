@@ -17,7 +17,7 @@ classifiers = [
 dependencies = ["lxmf", "markdownify", "platformdirs"]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pytest-asyncio"]
 
 [project.scripts]
 send-lxmf = "lxmf_sender.send:main"

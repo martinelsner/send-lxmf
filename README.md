@@ -41,6 +41,10 @@ sendmail-lxmf b9af7034186731b9f009d06795172a36 < message.eml
 
 See [doc/sendmail-lxmf.md](doc/sendmail-lxmf.md) for all options.
 
+### Background Sending
+
+Messages are enqueued and sent in the background, releasing the caller immediately. The daemon manages delivery attempts, retries, and propagation — you don't need to wait for the message to reach the recipient.
+
 ## Configuration
 
 Configuration file: `/etc/lxmf-sender.conf`
