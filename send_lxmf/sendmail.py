@@ -33,8 +33,8 @@ from send_lxmf.lib import LXMFError, send_message
 _HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 _ALIASES_PATH = "/etc/sendmail-lxmf/aliases"
-_DEFAULT_DEST_PATH = "/etc/sendmail-lxmf/default-destination"
-_PROPAGATION_NODE_PATH = "/etc/sendmail-lxmf/propagation-node"
+_DEFAULT_DEST_PATH = "/etc/send-lxmf/default-destination"
+_PROPAGATION_NODE_PATH = "/etc/send-lxmf/propagation-node"
 
 
 def _extract_lxmf_address(value: str | None) -> str | None:

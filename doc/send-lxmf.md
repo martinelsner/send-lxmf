@@ -67,3 +67,12 @@ echo "Hi" | send-lxmf <recipient_hex_hash> --propagation-node <node_hex_hash>
 
 The message is first attempted via direct (opportunistic) delivery. Only if
 that fails is it handed off to the specified propagation node.
+
+The propagation node can also be configured system-wide in
+`/etc/send-lxmf/propagation-node` (a single hex hash, with optional comments).
+The `--propagation-node` flag takes precedence over the config file.
+
+```bash
+sudo mkdir -p /etc/send-lxmf
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/send-lxmf/propagation-node
+```

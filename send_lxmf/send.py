@@ -10,10 +10,29 @@ Usage:
 """
 
 import argparse
+import re
 import sys
 
 from send_lxmf import __version__
 from send_lxmf.lib import LXMFError, send_message
+
+_CONFIG_DIR = "/etc/send-lxmf"
+_PROPAGATION_NODE_PATH = _CONFIG_DIR + "/propagation-node"
+
+
+def _read_propagation_node(path: str = _PROPAGATION_NODE_PATH) -> str | None:
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                m = re.search(r"[0-9a-fA-F]{32}", line)
+                if m:
+                    return m.group(0).lower()
+    except FileNotFoundError:
+        pass
+    return None
 
 
 def main() -> None:
@@ -89,7 +108,7 @@ def main() -> None:
             prepend_title=args.prepend_title,
             attachments=args.attach,
             rnsconfig=args.rnsconfig,
-            propagation_node=args.propagation_node,
+            propagation_node=args.propagation_node or _read_propagation_node(),
             timeout=args.timeout,
         )
     except LXMFError as e:

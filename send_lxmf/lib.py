@@ -5,12 +5,10 @@ import time
 
 import LXMF
 import RNS
-from platformdirs import user_data_dir
 
-APP_NAME = "send-lxmf"
 TIMEOUT = 10  # seconds to wait for path / identity / delivery
 
-SYSTEM_IDENTITY_PATH = "/etc/send-lxmf/identity"
+SYSTEM_IDENTITY_PATH = "/var/lib/send-lxmf/identity"
 SYSTEM_STORAGE_PATH = "/var/lib/send-lxmf/storage"
 SYSTEM_LOCK_PATH = "/var/lock/send-lxmf.lock"
 
@@ -103,18 +101,10 @@ def send_message(
             raise IdentityError(f"identity file not found: {identity_path}")
         sender_identity = RNS.Identity.from_file(identity_path)
     else:
-        if os.path.isfile(SYSTEM_IDENTITY_PATH):
-            sender_identity = RNS.Identity.from_file(SYSTEM_IDENTITY_PATH)
-            identity_path = SYSTEM_IDENTITY_PATH
-        else:
-            data_dir = user_data_dir(APP_NAME, ensure_exists=True)
-            identity_path = os.path.join(data_dir, "identity")
-            if os.path.isfile(identity_path):
-                sender_identity = RNS.Identity.from_file(identity_path)
-            else:
-                sender_identity = RNS.Identity()
-                sender_identity.to_file(identity_path)
-                RNS.log("Created new sender identity, saved to " + identity_path)
+        if not os.path.isfile(SYSTEM_IDENTITY_PATH):
+            raise IdentityError(f"identity file not found: {SYSTEM_IDENTITY_PATH}")
+        sender_identity = RNS.Identity.from_file(SYSTEM_IDENTITY_PATH)
+        identity_path = SYSTEM_IDENTITY_PATH
 
     storage_path = SYSTEM_STORAGE_PATH
     os.makedirs(storage_path, exist_ok=True)

@@ -38,7 +38,7 @@ When a recipient is not a valid LXMF address (e.g. `root` or
 files, checked in this order:
 
 1. `/etc/sendmail-lxmf/aliases` — per-user mapping of local names to LXMF destinations
-2. `/etc/sendmail-lxmf/default-destination` — catch-all fallback destination
+2. `/etc/send-lxmf/default-destination` — catch-all fallback destination
 
 This makes it possible to use sendmail-lxmf as a system-wide sendmail
 replacement where services send mail to local users like `root@localhost`.
@@ -48,8 +48,8 @@ replacement where services send mail to local users like `root@localhost`.
 Set up a default destination so all local mail goes to one LXMF address:
 
 ```bash
-sudo mkdir -p /etc/sendmail-lxmf
-echo "b9af7034186731b9f009d06795172a36" | sudo tee /etc/sendmail-lxmf/default-destination
+sudo mkdir -p /etc/send-lxmf
+echo "b9af7034186731b9f009d06795172a36" | sudo tee /etc/send-lxmf/default-destination
 ```
 
 ### Aliases
@@ -99,13 +99,13 @@ sendmail-lxmf --propagation-node <node_hex_hash> < message.eml
 ```
 
 The propagation node can also be configured system-wide in
-`/etc/sendmail-lxmf/propagation-node` (same format as `default-destination` — a
+`/etc/send-lxmf/propagation-node` (same format as `default-destination` — a
 single hex hash, with optional comments). The `--propagation-node` flag
 takes precedence over the config file.
 
 ```bash
-sudo mkdir -p /etc/sendmail-lxmf
-echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/sendmail-lxmf/propagation-node
+sudo mkdir -p /etc/send-lxmf
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/send-lxmf/propagation-node
 ```
 
 The message is first attempted via direct (opportunistic) delivery. If
