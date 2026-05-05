@@ -101,13 +101,17 @@ def send_message(
             raise IdentityError(f"identity file not found: {identity_path}")
         sender_identity = RNS.Identity.from_file(identity_path)
     else:
+        id_dir = os.path.dirname(SYSTEM_IDENTITY_PATH)
+        os.makedirs(id_dir, exist_ok=True, mode=0o777)
         if not os.path.isfile(SYSTEM_IDENTITY_PATH):
-            raise IdentityError(f"identity file not found: {SYSTEM_IDENTITY_PATH}")
-        sender_identity = RNS.Identity.from_file(SYSTEM_IDENTITY_PATH)
+            sender_identity = RNS.Identity()
+            sender_identity.to_file(SYSTEM_IDENTITY_PATH)
+        else:
+            sender_identity = RNS.Identity.from_file(SYSTEM_IDENTITY_PATH)
         identity_path = SYSTEM_IDENTITY_PATH
 
     storage_path = SYSTEM_STORAGE_PATH
-    os.makedirs(storage_path, exist_ok=True)
+    os.makedirs(storage_path, exist_ok=True, mode=0o777)
 
     pool = SenderPool.get(sender_identity, storage_path, SYSTEM_LOCK_PATH)
     router = pool._get_router()

@@ -79,14 +79,17 @@ def test_loads_identity_from_system_path(monkeypatch, tmp_path):
     RNS.Identity.from_file.assert_called_with(str(id_file))
 
 
-def test_missing_system_identity_exits_1(monkeypatch, capsys):
+def test_auto_creates_system_identity(monkeypatch, tmp_path):
+    import RNS
+    id_file = tmp_path / "identity"
     monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
     monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.lib.SYSTEM_IDENTITY_PATH", "/nonexistent/system/identity")
-    with pytest.raises(SystemExit) as exc:
-        _run_main()
-    assert exc.value.code == 1
-    assert "identity file not found" in capsys.readouterr().err.lower()
+    monkeypatch.setattr("send_lxmf.lib.SYSTEM_IDENTITY_PATH", str(id_file))
+    _simulate_delivery(monkeypatch)
+
+    original_to_file = RNS.Identity.return_value.to_file
+    _run_main()
+    original_to_file.assert_called_with(str(id_file))
 
 
 def test_failed_delivery_exits_1(monkeypatch, capsys):
