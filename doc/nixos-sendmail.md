@@ -10,7 +10,7 @@ The setup involves three pieces:
 
 1. Installing `send-lxmf` and creating a wrapper that exposes
    `sendmail-lxmf` as `/bin/sendmail`.
-2. Configuring `/etc/lxmf/default-destination` so local recipients
+2. Configuring `/etc/sendmail-lxmf/default-destination` so local recipients
    (like `root`) resolve to an LXMF address.
 3. Optionally placing the wrapper in `/run/wrappers/bin/sendmail` for
    services that hardcode that path.
@@ -98,8 +98,8 @@ delivery. If that fails, it is handed off to the propagation node.
 When a service like cron or smartd sends mail to `root@localhost`, it
 invokes `/bin/sendmail` (or `/run/wrappers/bin/sendmail`), which is now
 `sendmail-lxmf`. Since `root` is not a valid LXMF hex hash, sendmail-lxmf
-checks `/etc/lxmf/aliases` first, then falls back to
-`/etc/lxmf/default-destination`, and delivers the message over LXMF.
+checks `/etc/sendmail-lxmf/aliases` first, then falls back to
+`/etc/sendmail-lxmf/default-destination`, and delivers the message over LXMF.
 
 ## Notes
 

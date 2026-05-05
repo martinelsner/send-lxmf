@@ -27,5 +27,8 @@ sendmail-lxmf = "send_lxmf.sendmail:main"
 Homepage = "https://codeberg.org/melsner/send-lxmf"
 Repository = "https://codeberg.org/melsner/send-lxmf"
 
+[tool.setuptools]
+packages = ["send_lxmf"]
+
 [tool.setuptools.dynamic]
 version = {attr = "send_lxmf.__version__"}

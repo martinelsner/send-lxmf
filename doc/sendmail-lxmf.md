@@ -37,8 +37,8 @@ When a recipient is not a valid LXMF address (e.g. `root` or
 `www-data@localhost`), sendmail-lxmf resolves it using local configuration
 files, checked in this order:
 
-1. `/etc/lxmf/aliases` — per-user mapping of local names to LXMF destinations
-2. `/etc/lxmf/default-destination` — catch-all fallback destination
+1. `/etc/sendmail-lxmf/aliases` — per-user mapping of local names to LXMF destinations
+2. `/etc/sendmail-lxmf/default-destination` — catch-all fallback destination
 
 This makes it possible to use sendmail-lxmf as a system-wide sendmail
 replacement where services send mail to local users like `root@localhost`.
@@ -48,18 +48,18 @@ replacement where services send mail to local users like `root@localhost`.
 Set up a default destination so all local mail goes to one LXMF address:
 
 ```bash
-sudo mkdir -p /etc/lxmf
-echo "b9af7034186731b9f009d06795172a36" | sudo tee /etc/lxmf/default-destination
+sudo mkdir -p /etc/sendmail-lxmf
+echo "b9af7034186731b9f009d06795172a36" | sudo tee /etc/sendmail-lxmf/default-destination
 ```
 
 ### Aliases
 
 Map specific local users to different LXMF destinations in
-`/etc/lxmf/aliases` (format: `name: hex_hash`, one per line). Multiple
+`/etc/sendmail-lxmf/aliases` (format: `name: hex_hash`, one per line). Multiple
 destinations can be separated by commas:
 
 ```text
-# /etc/lxmf/aliases
+# /etc/sendmail-lxmf/aliases
 root: b9af7034186731b9f009d06795172a36
 admin: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4, b9af7034186731b9f009d06795172a36
 ```
@@ -99,13 +99,13 @@ sendmail-lxmf --propagation-node <node_hex_hash> < message.eml
 ```
 
 The propagation node can also be configured system-wide in
-`/etc/lxmf/propagation-node` (same format as `default-destination` — a
+`/etc/sendmail-lxmf/propagation-node` (same format as `default-destination` — a
 single hex hash, with optional comments). The `--propagation-node` flag
 takes precedence over the config file.
 
 ```bash
-sudo mkdir -p /etc/lxmf
-echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/lxmf/propagation-node
+sudo mkdir -p /etc/sendmail-lxmf
+echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/sendmail-lxmf/propagation-node
 ```
 
 The message is first attempted via direct (opportunistic) delivery. If

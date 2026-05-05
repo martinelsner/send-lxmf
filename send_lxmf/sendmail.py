@@ -32,9 +32,9 @@ from send_lxmf.lib import LXMFError, send_message
 # Matches a bare 32-byte hex hash (the LXMF address format).
 _HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
-_ALIASES_PATH = "/etc/lxmf/aliases"
-_DEFAULT_DEST_PATH = "/etc/lxmf/default-destination"
-_PROPAGATION_NODE_PATH = "/etc/lxmf/propagation-node"
+_ALIASES_PATH = "/etc/sendmail-lxmf/aliases"
+_DEFAULT_DEST_PATH = "/etc/sendmail-lxmf/default-destination"
+_PROPAGATION_NODE_PATH = "/etc/sendmail-lxmf/propagation-node"
 
 
 def _extract_lxmf_address(value: str | None) -> str | None:
@@ -142,8 +142,8 @@ def _resolve_recipient(
     Resolution order:
     1. If the recipient is already a valid LXMF address, use it directly.
     2. Extract the local part (strip ``@domain``) and look it up in
-       ``/etc/lxmf/aliases``.
-    3. Fall back to ``/etc/lxmf/default-destination``.
+       ``/etc/sendmail-lxmf/aliases``.
+    3. Fall back to ``/etc/sendmail-lxmf/default-destination``.
 
     Returns an empty list when the recipient cannot be resolved.
     """
