@@ -10,6 +10,10 @@ from platformdirs import user_data_dir
 APP_NAME = "send-lxmf"
 TIMEOUT = 10  # seconds to wait for path / identity / delivery
 
+SYSTEM_IDENTITY_PATH = "/etc/send-lxmf/identity"
+SYSTEM_STORAGE_PATH = "/var/lib/send-lxmf/storage"
+SYSTEM_LOCK_PATH = "/var/lock/send-lxmf.lock"
+
 
 class LXMFError(Exception):
     """Base exception for LXMF sending errors."""
@@ -81,6 +85,8 @@ def send_message(
     timeout : int | None
         Seconds to wait for delivery per method. Defaults to *TIMEOUT*.
     """
+    from send_lxmf.pool import SenderPool
+
     effective_timeout = timeout if timeout is not None else TIMEOUT
     destination_hashes = [
         _parse_hex_hash(hex_str, "hex hash") for hex_str in destinations
@@ -97,21 +103,25 @@ def send_message(
             raise IdentityError(f"identity file not found: {identity_path}")
         sender_identity = RNS.Identity.from_file(identity_path)
     else:
-        data_dir = user_data_dir(APP_NAME, ensure_exists=True)
-        identity_path = os.path.join(data_dir, "identity")
-        if os.path.isfile(identity_path):
-            sender_identity = RNS.Identity.from_file(identity_path)
+        if os.path.isfile(SYSTEM_IDENTITY_PATH):
+            sender_identity = RNS.Identity.from_file(SYSTEM_IDENTITY_PATH)
+            identity_path = SYSTEM_IDENTITY_PATH
         else:
-            sender_identity = RNS.Identity()
-            sender_identity.to_file(identity_path)
-            RNS.log("Created new sender identity, saved to " + identity_path)
+            data_dir = user_data_dir(APP_NAME, ensure_exists=True)
+            identity_path = os.path.join(data_dir, "identity")
+            if os.path.isfile(identity_path):
+                sender_identity = RNS.Identity.from_file(identity_path)
+            else:
+                sender_identity = RNS.Identity()
+                sender_identity.to_file(identity_path)
+                RNS.log("Created new sender identity, saved to " + identity_path)
 
-    data_dir = user_data_dir(APP_NAME, ensure_exists=True)
-    storage_path = os.path.join(data_dir, "storage")
-    router = LXMF.LXMRouter(identity=sender_identity, storagepath=storage_path)
-    source = router.register_delivery_identity(
-        sender_identity, display_name=display_name
-    )
+    storage_path = SYSTEM_STORAGE_PATH
+    os.makedirs(storage_path, exist_ok=True)
+
+    pool = SenderPool.get(sender_identity, storage_path, SYSTEM_LOCK_PATH)
+    router = pool._get_router()
+    source = pool.get_source()
 
     if display_name:
         router.announce(source.hash)
@@ -139,109 +149,18 @@ def send_message(
         _setup_propagation_link(router, pn_hash, effective_timeout)
 
     for destination_hash in destination_hashes:
-        RNS.log(f"Target  : {RNS.prettyhexrep(destination_hash)}")
-
-        # Request path (router will keep retrying internally,
-        # but we need the identity to construct the destination object)
-        if not RNS.Transport.has_path(destination_hash):
-            RNS.Transport.request_path(destination_hash)
-
-        # Resolve recipient identity
-        recipient_identity = RNS.Identity.recall(destination_hash)
-        if recipient_identity is None:
-            deadline = time.time() + effective_timeout
-            while recipient_identity is None:
-                if time.time() > deadline:
-                    raise DeliveryError("timed out waiting for recipient identity.")
-                time.sleep(0.2)
-                recipient_identity = RNS.Identity.recall(destination_hash)
-
-        destination = RNS.Destination(
-            recipient_identity,
-            RNS.Destination.OUT,
-            RNS.Destination.SINGLE,
-            "lxmf",
-            "delivery",
+        pool.send(
+            destination={
+                "hash": destination_hash,
+                "source": source,
+                "title": title,
+                "fields": fields,
+                "timeout": effective_timeout,
+                "propagation_node": propagation_node,
+                "pn_hash": pn_hash,
+            },
+            content=content,
         )
-
-        message = LXMF.LXMessage(
-            destination,
-            source,
-            content,
-            title=title,
-            fields=fields,
-            desired_method=LXMF.LXMessage.DIRECT,
-        )
-
-        delivered = False
-        failed = False
-        failed_msg = None
-
-        def on_delivered(msg):
-            nonlocal delivered
-            delivered = True
-
-        def on_failed(msg):
-            nonlocal failed, failed_msg
-            failed = True
-            failed_msg = msg
-
-        message.register_delivery_callback(on_delivered)
-        message.register_failed_callback(on_failed)
-
-        router.handle_outbound(message)
-        RNS.log("Message queued (direct), waiting for delivery...")
-
-        deadline = time.time() + effective_timeout
-        while not delivered and not failed:
-            if time.time() > deadline:
-                failed = True
-                break
-            router.process_outbound()
-            time.sleep(0.2)
-
-        if delivered:
-            RNS.log("Message delivered successfully (direct).")
-        elif pn_hash:
-            RNS.log("Direct delivery failed, trying propagated...")
-
-            delivered = False
-            failed = False
-            failed_msg = None
-
-            message = LXMF.LXMessage(
-                destination,
-                source,
-                content,
-                title=title,
-                fields=fields,
-                desired_method=LXMF.LXMessage.PROPAGATED,
-            )
-
-            message.register_delivery_callback(on_delivered)
-            message.register_failed_callback(on_failed)
-
-            router.handle_outbound(message)
-            RNS.log("Message queued (propagated), waiting for delivery...")
-
-            deadline = time.time() + effective_timeout
-            while not delivered and not failed:
-                if time.time() > deadline:
-                    failed = True
-                    break
-                router.process_outbound()
-                time.sleep(0.2)
-
-            if delivered:
-                RNS.log("Propagation link active, verifying message storage...")
-                _wait_for_propagation_storage(router, pn_hash, effective_timeout)
-                RNS.log("Message delivered and stored by propagation node.")
-            else:
-                reason = _failure_reason(failed_msg) if failed_msg else "unknown"
-                raise DeliveryError(f"message delivery failed ({reason}).")
-        else:
-            reason = _failure_reason(failed_msg) if failed_msg else "unknown"
-            raise DeliveryError(f"message delivery failed ({reason}).")
 
 
 def _parse_hex_hash(hex_str: str, description: str) -> bytes:

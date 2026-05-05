@@ -17,6 +17,7 @@ python.pkgs.buildPythonApplication {
     python.pkgs.lxmf
     python.pkgs.markdownify
     python.pkgs.platformdirs
+    python.pkgs.filelock
   ];
 
   meta = {

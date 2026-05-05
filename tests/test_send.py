@@ -211,16 +211,42 @@ def _make_fake_lxmf():
 @pytest.fixture(autouse=True)
 def _patch_modules(monkeypatch):
     """Inject fake RNS / LXMF into sys.modules before every test."""
+    import os
+
+    monkeypatch.setattr(os, "makedirs", mock.MagicMock())
     fake_rns = _make_fake_rns()
     fake_lxmf = _make_fake_lxmf()
     monkeypatch.setitem(sys.modules, "RNS", fake_rns)
     monkeypatch.setitem(sys.modules, "LXMF", fake_lxmf)
+
+    import types
+
+    fake_filelock = types.ModuleType("filelock")
+
+    class MockFileLock:
+        def __init__(self, path, timeout=None):
+            self.lock_file = path
+            self.timeout = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    fake_filelock.FileLock = MockFileLock
+    monkeypatch.setitem(sys.modules, "filelock", fake_filelock)
+
     import importlib
     import send_lxmf.lib as lib_mod
+    import send_lxmf.pool as pool_mod
     import send_lxmf.send as send_mod
+    pool_mod.SenderPool._instance = None
     importlib.reload(lib_mod)
+    importlib.reload(pool_mod)
     importlib.reload(send_mod)
     yield
+    pool_mod.SenderPool._instance = None
 
 
 def _run_main():
