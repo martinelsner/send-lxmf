@@ -65,10 +65,6 @@ class SenderPool:
         effective_timeout = destination.get("timeout", 10)
         propagation_node = destination.get("propagation_node")
 
-        if propagation_node:
-            pn_hash = destination["pn_hash"]
-            self._setup_propagation_link(router, pn_hash, effective_timeout)
-
         RNS.log(f"Target  : {RNS.prettyhexrep(destination_hash)}")
 
         if not RNS.Transport.has_path(destination_hash):
@@ -132,7 +128,8 @@ class SenderPool:
         if delivered:
             RNS.log("Message delivered successfully (direct).")
         elif propagation_node:
-            RNS.log("Direct delivery failed, trying propagated...")
+            pn_hash = destination["pn_hash"]
+            RNS.log(f"Direct delivery failed, trying propagated via {RNS.prettyhexrep(pn_hash)}...")
 
             delivered = False
             failed = False
@@ -150,6 +147,7 @@ class SenderPool:
             msg.register_delivery_callback(on_delivered)
             msg.register_failed_callback(on_failed)
 
+            self._setup_propagation_link(router, pn_hash, effective_timeout)
             router.handle_outbound(msg)
             RNS.log("Message queued (propagated), waiting for delivery...")
 

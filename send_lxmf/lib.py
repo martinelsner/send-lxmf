@@ -140,7 +140,6 @@ def send_message(
     pn_hash = None
     if propagation_node:
         pn_hash = _parse_hex_hash(propagation_node, "propagation node hash")
-        _setup_propagation_link(router, pn_hash, effective_timeout)
 
     for destination_hash in destination_hashes:
         pool.send(
