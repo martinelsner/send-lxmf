@@ -10,7 +10,7 @@ TIMEOUT = 10  # seconds to wait for path / identity / delivery
 
 SYSTEM_IDENTITY_PATH = "/var/lib/send-lxmf/identity"
 SYSTEM_STORAGE_PATH = "/var/lib/send-lxmf/storage"
-SYSTEM_LOCK_PATH = "/var/lock/send-lxmf.lock"
+SYSTEM_LOCK_PATH = "/var/lib/send-lxmf/sending.lock"
 
 
 class LXMFError(Exception):
