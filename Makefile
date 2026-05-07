@@ -12,7 +12,7 @@ install: venv ## Install the project in editable mode with dev deps
 	uv pip install --python $(VENV)/bin/python -e ".[dev]"
 
 test: install ## Run the test suite
-	$(VENV)/bin/pytest tests/
+	$(VENV)/bin/pytest -sv tests/
 
 build: install ## Build sdist and wheel for PyPI
 	uv build

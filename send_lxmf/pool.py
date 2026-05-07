@@ -68,21 +68,25 @@ class SenderPool:
         RNS.log(f"Target  : {RNS.prettyhexrep(destination_hash)}")
 
         if not RNS.Transport.has_path(destination_hash):
+            RNS.log(f"Requesting path to {RNS.prettyhexrep(destination_hash)}...")
             RNS.Transport.request_path(destination_hash)
 
         recipient_identity = RNS.Identity.recall(destination_hash)
         if recipient_identity is None:
+            RNS.log(f"Destination identity not known, requesting announce from {RNS.prettyhexrep(destination_hash)}...")
+            RNS.Transport.request_path(destination_hash)
             deadline = time.time() + effective_timeout
             while recipient_identity is None:
                 if time.time() > deadline:
-                    raise DeliveryError(
-                        "timed out waiting for recipient identity."
-                    )
+                    RNS.log("Destination identity not found, message may fail")
+                    break
                 time.sleep(0.2)
                 recipient_identity = RNS.Identity.recall(destination_hash)
+            if recipient_identity is None:
+                RNS.log("Destination identity still not available, proceeding with delivery attempt...")
 
         dest = RNS.Destination(
-            recipient_identity,
+            recipient_identity if recipient_identity else destination_hash,
             RNS.Destination.OUT,
             RNS.Destination.SINGLE,
             "lxmf",

@@ -116,11 +116,15 @@ def send_message(
     pool = SenderPool.get(sender_identity, storage_path, SYSTEM_LOCK_PATH)
     router = pool._get_router()
     source = pool.get_source()
+    router.announce(source.hash)
+    RNS.Transport.request_path(source.hash)
+    RNS.log("Waiting for announce to propagate...")
+    time.sleep(2)
 
     if display_name:
-        router.announce(source.hash)
-
-    RNS.log(f"Sender  : {RNS.prettyhexrep(source.hash)}")
+        RNS.log(f"Sender  : {display_name} <{RNS.prettyhexrep(source.hash)}>")
+    else:
+        RNS.log(f"Sender  : {RNS.prettyhexrep(source.hash)}")
 
     if prepend_title and title:
         content = title + "\n\n" + content
@@ -142,6 +146,27 @@ def send_message(
         pn_hash = _parse_hex_hash(propagation_node, "propagation node hash")
 
     for destination_hash in destination_hashes:
+        RNS.log(f"Requesting path to {RNS.prettyhexrep(destination_hash)}...")
+        RNS.Transport.request_path(destination_hash)
+
+        deadline = time.time() + effective_timeout
+        while not RNS.Transport.has_path(destination_hash):
+            if time.time() > deadline:
+                RNS.log("Destination not reachable, continuing anyway...")
+                break
+            time.sleep(0.5)
+
+        recipient_identity = RNS.Identity.recall(destination_hash)
+        if recipient_identity is None:
+            RNS.log("Destination identity not known locally, attempting announce download...")
+            RNS.Transport.request_path(destination_hash)
+            deadline = time.time() + effective_timeout
+            while recipient_identity is None:
+                if time.time() > deadline:
+                    raise IdentityError("timed out waiting for recipient identity")
+                time.sleep(0.5)
+                recipient_identity = RNS.Identity.recall(destination_hash)
+
         pool.send(
             destination={
                 "hash": destination_hash,

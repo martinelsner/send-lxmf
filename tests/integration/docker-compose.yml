@@ -1,0 +1,40 @@
+# Integration test: two-node LXMF message delivery over BackboneInterface
+#
+# node_a: rnsd (BackboneInterface listener) + send-lxmf
+# node_b: rnsd (BackboneInterface client → node_a) + LXMF receiver
+
+services:
+  node_a:
+    build:
+      context: ../..
+      dockerfile: tests/integration/Dockerfile.sender
+    hostname: node_a
+    networks:
+      - rns
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "rnsd"]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+
+  node_b:
+    build:
+      context: ../..
+      dockerfile: tests/integration/Dockerfile.receiver
+    hostname: node_b
+    networks:
+      - rns
+    ports:
+      - "8765"
+    depends_on:
+      node_a:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8765/hash"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+networks:
+  rns:
+    driver: bridge

@@ -1,0 +1,41 @@
+# Container A: sender node
+# Installs rnsd following the same steps as
+# https://codeberg.org/melsner/reticulum-installer (Alpine variant)
+# and send-lxmf from the local project source.
+
+FROM alpine:3.21
+
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    py3-virtualenv \
+    py3-cryptography \
+    py3-cffi \
+    procps \
+    wget
+
+# Install rnsd (replicates reticulum-installer/alpine/install.sh)
+RUN python3 -m venv --system-site-packages /opt/reticulum && \
+    /opt/reticulum/bin/pip install --no-cache-dir rns lxmf && \
+    ln -sf /opt/reticulum/bin/rnsd /usr/local/bin/rnsd
+
+# Create reticulum user and directories
+RUN addgroup -S reticulum && \
+    adduser -S -G reticulum -s /sbin/nologin -D reticulum && \
+    mkdir -p /etc/reticulum/storage /etc/reticulum/interfaces && \
+    chmod -R 777 /etc/reticulum
+
+# Install rnsd config (BackboneInterface listener)
+COPY tests/integration/rnsd-sender.conf /etc/reticulum/config
+
+# Install send-lxmf
+WORKDIR /app
+COPY pyproject.toml /app/pyproject.toml
+COPY send_lxmf /app/send_lxmf
+RUN /opt/reticulum/bin/pip install --no-cache-dir -e /app
+
+# Expose BackboneInterface listener port
+EXPOSE 5377
+
+# Start rnsd and keep it running
+CMD ["sh", "-c", "rnsd --config /etc/reticulum & sleep infinity"]

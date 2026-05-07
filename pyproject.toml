@@ -18,6 +18,12 @@ dependencies = ["lxmf", "markdownify", "filelock>=3.13.0"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
+integration = ["pytest", "requests"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
 
 [project.scripts]
 send-lxmf = "send_lxmf.send:main"

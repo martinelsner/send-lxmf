@@ -1,0 +1,37 @@
+# Container B: receiver node
+# Installs rnsd following the same steps as
+# https://codeberg.org/melsner/reticulum-installer (Alpine variant)
+# and runs an LXMF listener that exposes received messages via HTTP.
+
+FROM alpine:3.21
+
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    py3-virtualenv \
+    py3-cryptography \
+    py3-cffi \
+    wget
+
+# Install rnsd (replicates reticulum-installer/alpine/install.sh)
+RUN python3 -m venv --system-site-packages /opt/reticulum && \
+    /opt/reticulum/bin/pip install --no-cache-dir rns lxmf && \
+    ln -sf /opt/reticulum/bin/rnsd /usr/local/bin/rnsd
+
+# Create reticulum user and directories
+RUN addgroup -S reticulum && \
+    adduser -S -G reticulum -s /sbin/nologin -D reticulum && \
+    mkdir -p /etc/reticulum/storage /etc/reticulum/interfaces && \
+    chmod -R 777 /etc/reticulum
+
+# Install rnsd config (BackboneInterface client connecting to node_a)
+COPY tests/integration/rnsd-receiver.conf /etc/reticulum/config
+
+# Install the LXMF receiver script
+COPY tests/integration/receiver.py /app/receiver.py
+
+# Expose HTTP API port
+EXPOSE 8765
+
+# Start rnsd, wait for it to initialize, then start the LXMF receiver
+CMD ["sh", "-c", "rnsd --config /etc/reticulum & sleep 3 && exec /opt/reticulum/bin/python3 -u /app/receiver.py"]

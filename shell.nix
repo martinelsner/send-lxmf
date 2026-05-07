@@ -10,6 +10,8 @@ pkgs.mkShell {
     pkgs.python3
     pkgs.uv
     pkgs.zsh
+    pkgs.docker
+    pkgs.python3Packages.requests
   ];
 
   shellHook = ''
