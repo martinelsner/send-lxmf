@@ -1,5 +1,19 @@
 # Installation
 
+## Debian / Ubuntu (installer script)
+
+Download, extract, and run the installer script:
+
+```bash
+curl -L https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz | tar -xz -C /tmp
+sudo bash /tmp/send-lxmf-main/install.sh
+```
+
+The script will:
+- Install into `/opt/send-lxmf` virtualenv
+- Symlink `send-lxmf` and `sendmail-lxmf` to `/usr/local/bin/`
+- Create `/var/lib/send-lxmf` with world-writable permissions
+
 ## pipx
 
 Install with [pipx](https://pipx.pypa.io/):
@@ -38,11 +52,15 @@ package manager first and tell pipx to reuse system packages:
 ```bash
 # Debian / Ubuntu 32-bit
 sudo apt install python3-cryptography
-pipx install --system-site-packages https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
 
 # Termux (pipx is not packaged, install it via pip first)
 pkg install python python-cryptography python-pip
 pip install pipx
+```
+
+Then install send-lxmf:
+
+```bash
 pipx install --system-site-packages https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz
 ```
 

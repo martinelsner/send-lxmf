@@ -105,6 +105,7 @@ class SenderPool:
         delivered = False
         failed = False
         failed_msg = None
+        timed_out = False
 
         def on_delivered(msg):
             nonlocal delivered
@@ -124,6 +125,7 @@ class SenderPool:
         deadline = time.time() + effective_timeout
         while not delivered and not failed:
             if time.time() > deadline:
+                timed_out = True
                 failed = True
                 break
             router.process_outbound()
@@ -138,6 +140,7 @@ class SenderPool:
             delivered = False
             failed = False
             failed_msg = None
+            timed_out = False
 
             msg = LXMF.LXMessage(
                 dest,
@@ -158,6 +161,7 @@ class SenderPool:
             deadline = time.time() + effective_timeout
             while not delivered and not failed:
                 if time.time() > deadline:
+                    timed_out = True
                     failed = True
                     break
                 router.process_outbound()
@@ -170,11 +174,28 @@ class SenderPool:
                 self._wait_for_propagation_storage(router, pn_hash, effective_timeout)
                 RNS.log("Message delivered and stored by propagation node.")
             else:
+                target_hex = RNS.prettyhexrep(destination["hash"])
+                if timed_out:
+                    raise DeliveryError(
+                        f"message delivery timed out after {effective_timeout}s "
+                        f"waiting for propagation node {RNS.prettyhexrep(pn_hash)} "
+                        f"to accept message for {target_hex}. "
+                        f"The propagation node may be offline or unreachable."
+                    )
+                else:
+                    reason = self._failure_reason(failed_msg)
+                    raise DeliveryError(f"message delivery failed ({reason}).")
+        else:
+            target_hex = RNS.prettyhexrep(destination["hash"])
+            if timed_out:
+                raise DeliveryError(
+                    f"message delivery timed out after {effective_timeout}s "
+                    f"waiting for direct delivery to {target_hex}. "
+                    f"The recipient may be offline or unreachable."
+                )
+            else:
                 reason = self._failure_reason(failed_msg)
                 raise DeliveryError(f"message delivery failed ({reason}).")
-        else:
-            reason = self._failure_reason(failed_msg)
-            raise DeliveryError(f"message delivery failed ({reason}).")
 
     def _setup_propagation_link(self, router, pn_hash, timeout):
         router.set_outbound_propagation_node(pn_hash)

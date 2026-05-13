@@ -94,6 +94,8 @@ def send_message(
         raise LXMFError("no message content provided.")
 
     reticulum = RNS.Reticulum(configdir=rnsconfig, require_shared_instance=True)
+    RNS.log(f"RNS config dir: {rnsconfig or reticulum.configdir}")
+    RNS.log(f"send-lxmf data dir: {os.path.dirname(SYSTEM_IDENTITY_PATH)}")
 
     if identity_path:
         identity_path = os.path.expanduser(identity_path)
