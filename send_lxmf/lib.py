@@ -1,7 +1,6 @@
 """Shared LXMF sending logic."""
 
 import os
-import time
 
 import LXMF
 import RNS
@@ -58,34 +57,9 @@ def send_message(
     """Send an LXMF message to one or more destinations.
 
     Raises LXMFError (or subclasses) on errors.
-
-    Parameters
-    ----------
-    destinations : list[str]
-        Recipient LXMF address(es) as hex strings.
-    content : str
-        Message body text.
-    identity_path : str | None
-        Path to a Reticulum identity file. When *None* a default
-        identity is created/loaded from the platform data directory.
-    display_name : str | None
-        Sender display name to announce.
-    title : str
-        Message title (not shown by all clients).
-    prepend_title : bool
-        If *True*, prepend *title* to *content* separated by a blank line.
-    attachments : list[str] | None
-        Paths to files to attach.
-    rnsconfig : str | None
-        Path to alternative Reticulum config directory.
-    propagation_node : str | None
-        Hex hash of an LXMF propagation node used for propagated delivery.
-    timeout : int | None
-        Seconds to wait for delivery per method. Defaults to *TIMEOUT*.
     """
-    from send_lxmf.pool import SenderPool
-
     effective_timeout = timeout if timeout is not None else TIMEOUT
+
     destination_hashes = [
         _parse_hex_hash(hex_str, "hex hash") for hex_str in destinations
     ]
@@ -115,16 +89,14 @@ def send_message(
     storage_path = SYSTEM_STORAGE_PATH
     os.makedirs(storage_path, exist_ok=True, mode=0o777)
 
-    pool = SenderPool.get(sender_identity, storage_path, SYSTEM_LOCK_PATH)
-    router = pool._get_router()
-    source = pool.get_source()
-    router.announce(source.hash)
-    RNS.Transport.request_path(source.hash)
-    RNS.log("Waiting for announce to propagate...")
-    time.sleep(2)
+    from send_lxmf.pool import get as pool_get
+    from send_lxmf.pool import send as pool_send
+
+    router, source = pool_get(sender_identity, storage_path, SYSTEM_LOCK_PATH)
 
     if display_name:
         RNS.log(f"Sender  : {display_name} <{RNS.prettyhexrep(source.hash)}>")
+        router.announce(source.hash)
     else:
         RNS.log(f"Sender  : {RNS.prettyhexrep(source.hash)}")
 
@@ -143,33 +115,8 @@ def send_message(
                 file_list.append([os.path.basename(path), f.read()])
         fields[LXMF.FIELD_FILE_ATTACHMENTS] = file_list
 
-    pn_hash = None
-    if propagation_node:
-        pn_hash = _parse_hex_hash(propagation_node, "propagation node hash")
-
     for destination_hash in destination_hashes:
-        RNS.log(f"Requesting path to {RNS.prettyhexrep(destination_hash)}...")
-        RNS.Transport.request_path(destination_hash)
-
-        deadline = time.time() + effective_timeout
-        while not RNS.Transport.has_path(destination_hash):
-            if time.time() > deadline:
-                RNS.log("Destination not reachable, continuing anyway...")
-                break
-            time.sleep(0.5)
-
-        recipient_identity = RNS.Identity.recall(destination_hash)
-        if recipient_identity is None:
-            RNS.log("Destination identity not known locally, attempting announce download...")
-            RNS.Transport.request_path(destination_hash)
-            deadline = time.time() + effective_timeout
-            while recipient_identity is None:
-                if time.time() > deadline:
-                    raise IdentityError("timed out waiting for recipient identity")
-                time.sleep(0.5)
-                recipient_identity = RNS.Identity.recall(destination_hash)
-
-        pool.send(
+        pool_send(
             destination={
                 "hash": destination_hash,
                 "source": source,
@@ -177,7 +124,6 @@ def send_message(
                 "fields": fields,
                 "timeout": effective_timeout,
                 "propagation_node": propagation_node,
-                "pn_hash": pn_hash,
             },
             content=content,
         )
@@ -189,90 +135,3 @@ def _parse_hex_hash(hex_str: str, description: str) -> bytes:
         return bytes.fromhex(hex_str)
     except ValueError:
         raise InvalidHashError(f"'{hex_str}' is not a valid {description}.")
-
-
-def _setup_propagation_link(router, pn_hash: bytes, timeout: int) -> None:
-    """Pre-establish link to propagation node for faster delivery."""
-    router.set_outbound_propagation_node(pn_hash)
-
-    if not RNS.Transport.has_path(pn_hash):
-        RNS.Transport.request_path(pn_hash)
-        deadline = time.time() + timeout
-        while not RNS.Transport.has_path(pn_hash):
-            if time.time() > deadline:
-                RNS.log(
-                    "Could not find path to propagation node, "
-                    "will continue without pre-established link."
-                )
-                return
-            time.sleep(0.2)
-
-    if RNS.Transport.has_path(pn_hash):
-        pn_identity = RNS.Identity.recall(pn_hash)
-        if pn_identity:
-            pn_dest = RNS.Destination(
-                pn_identity,
-                RNS.Destination.OUT,
-                RNS.Destination.SINGLE,
-                "lxmf",
-                "propagation",
-            )
-            router.outbound_propagation_link = RNS.Link(
-                pn_dest,
-                established_callback=router.process_outbound,
-            )
-            router.outbound_propagation_link.set_packet_callback(
-                router.propagation_transfer_signalling_packet,
-            )
-            RNS.log("Pre-establishing link to propagation node...")
-
-            deadline = time.time() + timeout
-            while router.outbound_propagation_link.status not in (
-                RNS.Link.ACTIVE,
-                RNS.Link.CLOSED,
-            ):
-                if time.time() > deadline:
-                    break
-                time.sleep(0.2)
-
-            if router.outbound_propagation_link.status == RNS.Link.ACTIVE:
-                RNS.log("Propagation link established.")
-            else:
-                RNS.log(
-                    "Propagation link could not be established, "
-                    "router will retry internally."
-                )
-
-
-def _wait_for_propagation_storage(
-    router, pn_hash: bytes, delivery_timeout: int
-) -> bool:
-    """Wait for message propagation to complete.
-
-    After a PROPAGATED delivery is reported, we keep the link active
-    and process outbound messages. If the link stays ACTIVE for the
-    duration, we consider the propagation successful.
-
-    For persistent connections the link may stay open indefinitely,
-    so we return True as long as we haven't failed.
-    """
-    deadline = time.time() + delivery_timeout
-    while router.outbound_propagation_link.status == RNS.Link.ACTIVE:
-        if time.time() > deadline:
-            return True
-        router.process_outbound()
-        time.sleep(0.5)
-    return True
-
-
-def _failure_reason(msg) -> str:
-    """Extract a human-readable failure reason from a failed LXMessage."""
-    if msg is None:
-        return "unknown"
-
-    state_map = {
-        LXMF.LXMessage.FAILED: "failed",
-        LXMF.LXMessage.REJECTED: "rejected",
-        LXMF.LXMessage.CANCELLED: "cancelled",
-    }
-    return state_map.get(msg.state, f"state={msg.state}")
