@@ -105,6 +105,10 @@ def _send_one(router, source, destination, content):
                 f"waiting for direct delivery to {target_hex}"
             )
 
+    # Track delivery state
+    delivered = [False]
+    failed = [None]
+
     # Propagated delivery
     RNS.log("Direct delivery failed, attempting propagated delivery...")
 
