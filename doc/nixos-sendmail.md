@@ -6,16 +6,13 @@ over LXMF.
 
 ## Overview
 
-The setup involves four pieces:
+The setup involves three pieces:
 
 1. Installing `send-lxmf` and creating a wrapper that exposes
    `sendmail-lxmf` as `/bin/sendmail`.
-2. Configuring `/etc/send-lxmf/default-destination` so local recipients
-   (like `root`) resolve to an LXMF address.
+2. Configuring `/var/lib/send-lxmf/config` with your settings.
 3. Creating `/var/lib/send-lxmf` at boot with world-readable permissions
    (so all users can store identity/state there).
-4. Optionally placing the wrapper in `/run/wrappers/bin/sendmail` for
-   services that hardcode that path.
 
 ## configuration.nix
 
@@ -29,85 +26,40 @@ let
     "https://codeberg.org/melsner/send-lxmf/archive/main.tar.gz"
   ) { pkgs = unstable; };
 
-  # Wrapper that symlinks sendmail-lxmf as /bin/sendmail.
   sendmail-lxmf-wrapper = pkgs.runCommand "sendmail-lxmf-wrapper" { } ''
     mkdir -p $out/bin
     ln -s ${send-lxmf}/bin/sendmail-lxmf $out/bin/sendmail
   '';
 in
 {
-  # Install both the send-lxmf package and the sendmail wrapper.
   environment.systemPackages = [
     send-lxmf
     sendmail-lxmf-wrapper
   ];
 
-  # Create /var/lib/send-lxmf at boot with world-readable permissions.
-  # Reticulum and LXMF store identity and state here.
   systemd.tmpfiles.rules = [
     "d /var/lib/send-lxmf 0775 root users"
   ];
 
-  # Default LXMF destination for all local mail.
-  # Replace with your own LXMF destination hash.
-  environment.etc."send-lxmf/default-destination" = {
-    text = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4\n";
-    mode = "0644";
-  };
+  environment.etc."send-lxmf/config".text = ''
+    # Sender display name
+    # display_name = Alice
 
-  # (Optional) Place sendmail at /run/wrappers/bin/sendmail so services
-  # that hardcode that path (e.g. smartd) can find it.
-  security.wrappers.sendmail = {
-    setuid = false;
-    owner = "root";
-    group = "root";
-    source = "${sendmail-lxmf-wrapper}/bin/sendmail";
-  };
+    # Default LXMF destination for all local mail
+    destination = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+
+    # Propagation node (optional)
+    # propagation_node = c4d5e6f7a8b9c4d5e6f7a8b9c4d5e6f7
+  '';
 }
 ```
 
-## Per-user aliases (optional)
-
-If you need different local users to map to different LXMF destinations,
-add an aliases file:
-
-```nix
-environment.etc."send-lxmf/aliases" = {
-  text = ''
-    root: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
-    admin: b9af7034186731b9f009d06795172a36
-  '';
-  mode = "0644";
-};
-```
-
-Aliases take precedence over the default destination. See
-[sendmail-lxmf.md](sendmail-lxmf.md) for the full format.
-
 ## Propagation node fallback (optional)
 
-If you have a local or known LXMF propagation node, you can configure it
-so that messages are retried via store-and-forward when direct delivery
-fails:
-
-```nix
-environment.etc."send-lxmf/propagation-node" = {
-  text = "c4d5e6f7a8b9c4d5e6f7a8b9c4d5e6f7\n";
-  mode = "0644";
-};
-```
-
-This is especially useful for system mail where the recipient may be
-offline. The message is first attempted via direct (opportunistic)
-delivery. If that fails, it is handed off to the propagation node.
-
-## How it works
-
-When a service like cron or smartd sends mail to `root@localhost`, it
-invokes `/bin/sendmail` (or `/run/wrappers/bin/sendmail`), which is now
-`sendmail-lxmf`. Since `root` is not a valid LXMF hex hash, sendmail-lxmf
-checks `/etc/sendmail-lxmf/aliases` first, then falls back to
-`/etc/send-lxmf/default-destination`, and delivers the message over LXMF.
+If you have a local or known LXMF propagation node, uncomment the
+`propagation_node` line in the config above. The message is first
+attempted via direct (opportunistic) delivery. If that fails, it is
+handed off to the propagation node.
 
 ## Notes
 

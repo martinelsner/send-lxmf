@@ -22,6 +22,21 @@ Pipe a message directly:
 printf "To: b9af7034186731b9f009d06795172a36@lxmf\nSubject: Hello\n\nHi there\n" | sendmail-lxmf
 ```
 
+## Configuration
+
+All settings can be set in `/var/lib/send-lxmf/config`:
+
+```bash
+# Sender display name visible to recipients
+display_name = Alice
+
+# Propagation node for store-and-forward delivery
+propagation_node = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+```
+
+Command-line arguments override the config file. See `send-lxmf.conf` in
+the repo for a commented sample.
+
 ## Address formats
 
 Recipient addresses can be specified in several forms:
@@ -33,39 +48,9 @@ Recipient addresses can be specified in several forms:
 
 ## Recipient resolution
 
-When a recipient is not a valid LXMF address (e.g. `root` or
-`www-data@localhost`), sendmail-lxmf resolves it using local configuration
-files, checked in this order:
-
-1. `/etc/sendmail-lxmf/aliases` — per-user mapping of local names to LXMF destinations
-2. `/etc/send-lxmf/default-destination` — catch-all fallback destination
-
-This makes it possible to use sendmail-lxmf as a system-wide sendmail
-replacement where services send mail to local users like `root@localhost`.
-
-### Default destination
-
-Set up a default destination so all local mail goes to one LXMF address:
-
-```bash
-sudo mkdir -p /etc/send-lxmf
-echo "b9af7034186731b9f009d06795172a36" | sudo tee /etc/send-lxmf/default-destination
-```
-
-### Aliases
-
-Map specific local users to different LXMF destinations in
-`/etc/sendmail-lxmf/aliases` (format: `name: hex_hash`, one per line). Multiple
-destinations can be separated by commas:
-
-```text
-# /etc/sendmail-lxmf/aliases
-root: b9af7034186731b9f009d06795172a36
-admin: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4, b9af7034186731b9f009d06795172a36
-```
-
-Aliases take precedence over the default destination. Lines starting with
-`#` and blank lines are ignored in both files.
+When a recipient is not a valid LXMF address, sendmail-lxmf cannot resolve
+it to an LXMF destination. Provide a valid hex hash on the command line
+or in the `To:` header.
 
 ## Options
 
@@ -96,16 +81,6 @@ If direct delivery fails, fall back to sending via a propagation node
 
 ```bash
 sendmail-lxmf --propagation-node <node_hex_hash> < message.eml
-```
-
-The propagation node can also be configured system-wide in
-`/etc/send-lxmf/propagation-node` (same format as `default-destination` — a
-single hex hash, with optional comments). The `--propagation-node` flag
-takes precedence over the config file.
-
-```bash
-sudo mkdir -p /etc/send-lxmf
-echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/send-lxmf/propagation-node
 ```
 
 The message is first attempted via direct (opportunistic) delivery. If

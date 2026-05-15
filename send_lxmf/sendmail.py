@@ -27,14 +27,10 @@ from typing import NamedTuple
 from markdownify import markdownify as md
 
 from send_lxmf import __version__
-from send_lxmf.lib import LXMFError, send_message
+from send_lxmf.lib import LXMFError, load_config, send_message
 
-# Matches a bare 32-byte hex hash (the LXMF address format).
+
 _HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
-
-_ALIASES_PATH = "/etc/sendmail-lxmf/aliases"
-_DEFAULT_DEST_PATH = "/etc/send-lxmf/default-destination"
-_PROPAGATION_NODE_PATH = "/etc/send-lxmf/propagation-node"
 
 
 def _extract_lxmf_address(value: str | None) -> str | None:
@@ -52,17 +48,14 @@ def _extract_lxmf_address(value: str | None) -> str | None:
         return None
     value = value.strip()
 
-    # Try angle-bracket form first: "Name <hash>" or "<hash>"
     m = re.search(r"<([0-9a-fA-F]{32})(?:@[^>]*)?>", value)
     if m:
         return m.group(1).lower()
 
-    # Try "hash@domain" form
     m = re.search(r"([0-9a-fA-F]{32})@\S+", value)
     if m:
         return m.group(1).lower()
 
-    # Bare hex hash
     m = re.search(r"[0-9a-fA-F]{32}", value)
     if m:
         return m.group(0).lower()
@@ -70,95 +63,16 @@ def _extract_lxmf_address(value: str | None) -> str | None:
     return None
 
 
-def _read_single_address(path: str) -> str | None:
-    """Read a single hex address from a config file.
-
-    The file should contain a single hex hash, optionally with whitespace
-    or comments (lines starting with ``#``).
-    """
-    try:
-        with open(path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                addr = _extract_lxmf_address(line)
-                if addr:
-                    return addr
-    except FileNotFoundError:
-        pass
-    return None
-
-
-def _read_default_destination(path: str = _DEFAULT_DEST_PATH) -> str | None:
-    return _read_single_address(path)
-
-
-def _read_propagation_node(path: str = _PROPAGATION_NODE_PATH) -> str | None:
-    return _read_single_address(path)
-
-
-def _read_aliases(path: str = _ALIASES_PATH) -> dict[str, list[str]]:
-    """Read an aliases file mapping local names to LXMF destinations.
-
-    Format (one per line)::
-
-        root: b9af7034186731b9f009d06795172a36
-        admin: b9af7034186731b9f009d06795172a36, a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
-
-    Multiple destinations are separated by commas.
-    Blank lines and lines starting with ``#`` are ignored.
-    """
-    aliases: dict[str, list[str]] = {}
-    try:
-        with open(path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if ":" not in line:
-                    continue
-                name, value = line.split(":", 1)
-                name = name.strip().lower()
-                addrs = []
-                for part in value.split(","):
-                    addr = _extract_lxmf_address(part.strip())
-                    if addr:
-                        addrs.append(addr)
-                if name and addrs:
-                    aliases[name] = addrs
-    except FileNotFoundError:
-        pass
-    return aliases
-
-
-def _resolve_recipient(
-    recipient: str,
-    aliases_path: str | None = None,
-    default_dest_path: str | None = None,
-) -> list[str]:
+def _resolve_recipient(recipient: str) -> list[str]:
     """Resolve a recipient string to one or more LXMF destination hashes.
 
-    Resolution order:
-    1. If the recipient is already a valid LXMF address, use it directly.
-    2. Extract the local part (strip ``@domain``) and look it up in
-       ``/etc/sendmail-lxmf/aliases``.
-    3. Fall back to ``/etc/sendmail-lxmf/default-destination``.
-
-    Returns an empty list when the recipient cannot be resolved.
+    If the recipient is already a valid LXMF address, it is returned directly.
+    Otherwise returns an empty list.
     """
     addr = _extract_lxmf_address(recipient)
     if addr:
         return [addr]
-
-    local = recipient.split("@", 1)[0].strip().lower()
-
-    aliases = _read_aliases(aliases_path or _ALIASES_PATH)
-    if local in aliases:
-        return aliases[local]
-
-    default = _read_default_destination(default_dest_path or _DEFAULT_DEST_PATH)
-    return [default] if default else []
+    return []
 
 
 class ParsedEmail(NamedTuple):
@@ -188,11 +102,9 @@ def _parse_email(raw: str) -> ParsedEmail:
     raw_to = msg.get("To", "") or ""
     title = msg.get("Subject", "") or ""
 
-    # Extract display name from From: header.
     raw_from = msg.get("From", "") or ""
     display_name = None
     if raw_from:
-        # email.utils.parseaddr returns (realname, addr)
         realname, _ = email.utils.parseaddr(raw_from)
         if realname:
             display_name = realname
@@ -220,7 +132,6 @@ def _parse_email(raw: str) -> ParsedEmail:
                 data = part.get_content()
                 if isinstance(data, str):
                     data = data.encode()
-                # Create a shared temp dir on first attachment
                 if tmp_dir is None:
                     tmp_dir = tempfile.mkdtemp(prefix="sendmail_lxmf_")
                 path = os.path.join(tmp_dir, filename)
@@ -229,7 +140,7 @@ def _parse_email(raw: str) -> ParsedEmail:
                 attachment_paths.append(path)
     else:
         content_type = msg.get_content_type()
-        payload = msg.get_content()
+        payload = part.get_content()
         if isinstance(payload, str):
             if content_type == "text/html":
                 html_body = payload
@@ -267,7 +178,6 @@ def main() -> None:
         default=None,
         help="Sender display name (overrides From: header)",
     )
-    # Accept (and ignore) common sendmail flags for compatibility.
     parser.add_argument(
         "-i", action="store_true", help="(ignored, accepted for sendmail compatibility)"
     )
@@ -323,7 +233,6 @@ def main() -> None:
 
     parsed = _parse_email(raw)
 
-    # Determine recipients: CLI args take precedence over To: header.
     destinations = []
     if args.recipients:
         for r in args.recipients:
@@ -348,7 +257,8 @@ def main() -> None:
         sys.exit(1)
 
     display_name = args.display_name or args.full_name or parsed.from_name
-    propagation_node = args.propagation_node or _read_propagation_node()
+    config = load_config()
+    propagation_node = args.propagation_node or config.get("propagation_node")
 
     try:
         try:

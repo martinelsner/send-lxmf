@@ -11,6 +11,7 @@ import RNS
 SYSTEM_IDENTITY_PATH = "/var/lib/send-lxmf/identity"
 SYSTEM_STORAGE_PATH = "/var/lib/send-lxmf/storage"
 SYSTEM_LOCK_PATH = "/var/lib/send-lxmf/sending.lock"
+SYSTEM_CONFIG_PATH = "/var/lib/send-lxmf/config"
 
 
 class LXMFError(Exception):
@@ -75,6 +76,9 @@ def send_message(
     destination_hashes = [
         _parse_hex_hash(hex_str, "hex hash") for hex_str in destinations
     ]
+
+    if not destination_hashes:
+        raise LXMFError("no destination provided.")
 
     if not content:
         raise LXMFError("no message content provided.")
@@ -258,3 +262,31 @@ def _parse_hex_hash(hex_str: str, description: str) -> bytes:
         return bytes.fromhex(hex_str)
     except ValueError:
         raise InvalidHashError(f"'{hex_str}' is not a valid {description}.")
+
+
+def load_config(path: str | None = None) -> dict[str, str]:
+    """Load configuration from a file.
+
+    Returns a dict with keys: display_name, destination, propagation_node.
+    Only keys that are present and non-empty in the config are returned.
+    """
+    config_path = path or SYSTEM_CONFIG_PATH
+    if not os.path.isfile(config_path):
+        return {}
+    result: dict[str, str] = {}
+    try:
+        with open(config_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+                if key in ("display_name", "destination", "propagation_node"):
+                    result[key] = value
+    except OSError:
+        pass
+    return result

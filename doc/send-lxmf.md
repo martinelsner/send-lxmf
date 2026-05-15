@@ -9,6 +9,24 @@ from standard input.
 echo "Hello there" | send-lxmf <recipient_hex_hash>
 ```
 
+## Configuration
+
+All settings can be set in `/var/lib/send-lxmf/config`:
+
+```bash
+# Sender display name visible to recipients
+display_name = Alice
+
+# Default recipient (used when none given on command line)
+destination = b9af7034186731b9f009d06795172a36
+
+# Propagation node for store-and-forward delivery
+propagation_node = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+```
+
+Command-line arguments override the config file. See `send-lxmf.conf` in
+the repo for a commented sample.
+
 ## Options
 
 ### Identity
@@ -67,12 +85,3 @@ echo "Hi" | send-lxmf <recipient_hex_hash> --propagation-node <node_hex_hash>
 
 The message is first attempted via direct (opportunistic) delivery. Only if
 that fails is it handed off to the specified propagation node.
-
-The propagation node can also be configured system-wide in
-`/etc/send-lxmf/propagation-node` (a single hex hash, with optional comments).
-The `--propagation-node` flag takes precedence over the config file.
-
-```bash
-sudo mkdir -p /etc/send-lxmf
-echo "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" | sudo tee /etc/send-lxmf/propagation-node
-```
