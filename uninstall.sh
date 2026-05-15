@@ -27,7 +27,7 @@ echo ""
 # ---------- Symlinks ----------
 
 echo "--- Removing symlinks ---"
-for cmd in send-lxmf sendmail-lxmf; do
+for cmd in send-lxmf sendmail-lxmf sendmail; do
     rm -f "/usr/local/bin/${cmd}"
     echo "    Removed /usr/local/bin/${cmd}"
 done
@@ -43,10 +43,16 @@ else
     echo "    ${VENV_DIR} not found, skipping."
 fi
 
-# ---------- Data Directory ----------
+# ---------- Config and Data Directory ----------
 
-echo ""
-echo "--- Data directory ---"
+CONFIG_FILE="/var/lib/send-lxmf/config"
+if [[ -f "$CONFIG_FILE" ]]; then
+    echo "    ${CONFIG_FILE} exists. To remove it manually:"
+    echo "      sudo rm -f ${CONFIG_FILE}"
+else
+    echo "    ${CONFIG_FILE} not found."
+fi
+
 if [[ -d "$DATA_DIR" ]]; then
     echo "    ${DATA_DIR} exists. To remove it manually:"
     echo "      sudo rm -rf ${DATA_DIR}"
@@ -65,8 +71,4 @@ echo "  Note: System packages (python3-cryptography, python3-serial,"
 echo "        python3-bleak) were not removed. To remove them:"
 echo ""
 echo "    sudo apt remove python3-cryptography python3-serial python3-bleak"
-echo ""
-echo "  Data directory was not removed. To remove it:"
-echo ""
-echo "    sudo rm -rf ${DATA_DIR}"
 echo ""

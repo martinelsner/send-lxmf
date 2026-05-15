@@ -54,10 +54,10 @@ echo "--- Installing send-lxmf ---"
 echo "    Package installed."
 
 # Symlink commands to system PATH
-for cmd in send-lxmf sendmail-lxmf; do
-    ln -sf "$VENV_DIR/bin/${cmd}" "/usr/local/bin/${cmd}"
-    echo "    Symlinked ${cmd} -> /usr/local/bin/${cmd}"
-done
+ln -sf "$VENV_DIR/bin/send-lxmf" "/usr/local/bin/send-lxmf"
+ln -sf "$VENV_DIR/bin/sendmail-lxmf" "/usr/local/bin/sendmail-lxmf"
+ln -sf "$VENV_DIR/bin/sendmail-lxmf" "/usr/local/bin/sendmail"
+echo "    Symlinked send-lxmf, sendmail-lxmf, sendmail"
 
 # ---------- Data Directory ----------
 
@@ -66,6 +66,17 @@ echo "--- Creating data directory ---"
 mkdir -p /var/lib/send-lxmf
 chmod ugo+rwX /var/lib/send-lxmf
 echo "    Created /var/lib/send-lxmf with world-writable permissions."
+
+# ---------- Config File ----------
+
+CONFIG_FILE="/var/lib/send-lxmf/config"
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    cp "${SCRIPT_DIR}/send-lxmf.conf" "$CONFIG_FILE"
+    chmod 644 "$CONFIG_FILE"
+    echo "    Installed example config to ${CONFIG_FILE}"
+else
+    echo "    Config already exists at ${CONFIG_FILE}, leaving untouched."
+fi
 
 # ---------- Summary ----------
 
@@ -77,9 +88,13 @@ echo ""
 echo "  Commands:"
 echo "    send-lxmf     -> /usr/local/bin/send-lxmf"
 echo "    sendmail-lxmf -> /usr/local/bin/sendmail-lxmf"
+echo "    sendmail      -> /usr/local/bin/sendmail (alias to sendmail-lxmf)"
 echo ""
 echo "  Data directory:"
 echo "    /var/lib/send-lxmf (world-writable)"
+echo ""
+echo "  Config file:"
+echo "    /var/lib/send-lxmf/config"
 echo ""
 echo "  To get started:"
 echo "    send-lxmf --help"
