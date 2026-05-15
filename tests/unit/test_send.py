@@ -7,6 +7,8 @@ from unittest import mock
 
 import pytest
 
+import send_lxmf.lib
+
 
 # ---------------------------------------------------------------------------
 # Tests
@@ -15,6 +17,8 @@ import pytest
 
 def test_no_args_prints_help(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["send-lxmf"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(""))
+    monkeypatch.setattr(send_lxmf.lib, "SYSTEM_CONFIG_PATH", "/nonexistent/path/to/config")
     with pytest.raises(SystemExit) as exc:
         _run_main()
     assert exc.value.code == 0

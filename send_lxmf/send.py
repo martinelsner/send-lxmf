@@ -24,7 +24,8 @@ def main() -> None:
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
-        "destination", nargs="+", help="Recipient LXMF address(es) as hex hash"
+        "destination", nargs="*", default=[],
+        help="Recipient LXMF address(es) as hex hash"
     )
     parser.add_argument(
         "--identity",
@@ -65,21 +66,20 @@ def main() -> None:
         help="Propagation node to fall back to if direct delivery fails",
     )
 
-    if len(sys.argv) == 1:
+    args = parser.parse_args()
+    config = load_config()
+
+    if not args.destination and not config.get("destination"):
         parser.print_help()
         sys.exit(0)
 
-    args = parser.parse_args()
     content = sys.stdin.read()
-
-    config = load_config()
 
     if args.destination:
         destinations = args.destination
-    elif config.get("destination"):
-        destinations = [config["destination"]]
     else:
-        destinations = []
+        destinations = [config["destination"]]
+
     propagation_node = args.propagation_node or config.get("propagation_node")
 
     try:

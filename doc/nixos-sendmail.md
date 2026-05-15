@@ -10,8 +10,7 @@ The setup involves three pieces:
 
 1. Installing `send-lxmf` and creating a wrapper that exposes
    `sendmail-lxmf` as `/bin/sendmail`.
-2. Configuring `/var/lib/send-lxmf/config` with your settings.
-3. Creating `/var/lib/send-lxmf` at boot with world-readable permissions
+2. Creating `/var/lib/send-lxmf` at boot with world-readable permissions
    (so all users can store identity/state there).
 
 ## configuration.nix
@@ -40,26 +39,8 @@ in
   systemd.tmpfiles.rules = [
     "d /var/lib/send-lxmf 0775 root users"
   ];
-
-  environment.etc."send-lxmf/config".text = ''
-    # Sender display name
-    # display_name = Alice
-
-    # Default LXMF destination for all local mail
-    destination = a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
-
-    # Propagation node (optional)
-    # propagation_node = c4d5e6f7a8b9c4d5e6f7a8b9c4d5e6f7
-  '';
 }
 ```
-
-## Propagation node fallback (optional)
-
-If you have a local or known LXMF propagation node, uncomment the
-`propagation_node` line in the config above. The message is first
-attempted via direct (opportunistic) delivery. If that fails, it is
-handed off to the propagation node.
 
 ## Notes
 
