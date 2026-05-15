@@ -1,0 +1,62 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="cloudpickle" />
+          <option value="fakeredis" />
+          <option value="importlib-metadata" />
+          <option value="jaraco-classes" />
+          <option value="jaraco-context" />
+          <option value="jaraco-functools" />
+          <option value="keyring" />
+          <option value="lupa" />
+          <option value="opentelemetry-api" />
+          <option value="opentelemetry-exporter-prometheus" />
+          <option value="opentelemetry-instrumentation" />
+          <option value="opentelemetry-sdk" />
+          <option value="opentelemetry-semantic-conventions" />
+          <option value="prometheus-client" />
+          <option value="pydocket" />
+          <option value="python-json-logger" />
+          <option value="shellingham" />
+          <option value="sortedcontainers" />
+          <option value="typer" />
+          <option value="zipp" />
+          <option value="pydantic" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="E203" />
+          <option value="E501" />
+          <option value="E722" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyStubPackagesCompatibilityInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredStubPackages">
+        <list>
+          <option value="boto3-stubs~=1.42.21" />
+          <option value="boto3-stubs~=1.40.39" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="list.extend" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="SpellCheckingInspection" enabled="false" level="TYPO" enabled_by_default="false">
+      <option name="processCode" value="true" />
+      <option name="processLiterals" value="true" />
+      <option name="processComments" value="true" />
+    </inspection_tool>
+    <inspection_tool class="SqlNoDataSourceInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+  </profile>
+</component>

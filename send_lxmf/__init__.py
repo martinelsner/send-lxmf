@@ -1,5 +1,5 @@
 __version__ = "2.0.0"
 
-from send_lxmf.pool import SenderPool
+from send_lxmf.lib import DeliveryError, LXMFError
 
-__all__ = ["SenderPool"]
+__all__ = ["DeliveryError", "LXMFError"]

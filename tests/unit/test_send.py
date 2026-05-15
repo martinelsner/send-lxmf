@@ -109,48 +109,6 @@ def test_failed_delivery_exits_1(monkeypatch, capsys):
     assert "delivery failed" in capsys.readouterr().err.lower()
 
 
-def test_path_timeout_exits_1(monkeypatch, capsys):
-    """With TIMEOUT=0 and no path, opportunistic delivery times out."""
-    import RNS
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
-    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
-    RNS.Transport.has_path.return_value = False
-    RNS.Identity.recall.return_value = None
-
-    with pytest.raises(SystemExit) as exc:
-        _run_main()
-    assert exc.value.code == 1
-
-
-def test_identity_timeout_exits_1(monkeypatch, capsys):
-    """When no propagation_node and identity unknown, direct delivery times out."""
-    import LXMF
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
-    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
-    LXMF.LXMRouter.return_value.handle_outbound.side_effect = None
-
-    with pytest.raises(SystemExit) as exc:
-        _run_main()
-    assert exc.value.code == 1
-    assert "delivery failed" in capsys.readouterr().err.lower()
-
-
-def test_delivery_timeout_exits_1(monkeypatch, capsys):
-    """With TIMEOUT=0 and no callback fired, delivery times out."""
-    import LXMF
-    monkeypatch.setattr(sys, "argv", ["send-lxmf", VALID_HEX])
-    monkeypatch.setattr(sys, "stdin", io.StringIO("hello"))
-    monkeypatch.setattr("send_lxmf.lib.TIMEOUT", 0)
-    LXMF.LXMRouter.return_value.handle_outbound.side_effect = None
-
-    with pytest.raises(SystemExit) as exc:
-        _run_main()
-    assert exc.value.code == 1
-    assert "delivery failed" in capsys.readouterr().err.lower()
-
-
 # ---------------------------------------------------------------------------
 # Helpers & fixtures
 # ---------------------------------------------------------------------------
@@ -234,14 +192,10 @@ def _patch_modules(monkeypatch):
 
     import importlib
     import send_lxmf.lib as lib_mod
-    import send_lxmf.pool as pool_mod
     import send_lxmf.send as send_mod
-    pool_mod._reset_for_testing()
     importlib.reload(lib_mod)
-    importlib.reload(pool_mod)
     importlib.reload(send_mod)
     yield
-    pool_mod._reset_for_testing()
 
 
 def _run_main():

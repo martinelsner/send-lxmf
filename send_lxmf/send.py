@@ -83,13 +83,6 @@ def main() -> None:
         metavar="HEX_HASH",
         help="Propagation node to fall back to if direct delivery fails",
     )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=None,
-        metavar="SECONDS",
-        help="Seconds to wait for delivery (default: 15)",
-    )
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -109,7 +102,6 @@ def main() -> None:
             attachments=args.attach,
             rnsconfig=args.rnsconfig,
             propagation_node=args.propagation_node or _read_propagation_node(),
-            timeout=args.timeout,
         )
     except LXMFError as e:
         print(f"Error: {e}", file=sys.stderr)

@@ -313,13 +313,6 @@ def main() -> None:
         metavar="HEX_HASH",
         help="Propagation node to fall back to if direct delivery fails",
     )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=None,
-        metavar="SECONDS",
-        help="Seconds to wait for delivery (default: 15)",
-    )
 
     args = parser.parse_args()
 
@@ -369,7 +362,6 @@ def main() -> None:
                 attachments=parsed.attachments or None,
                 rnsconfig=args.rnsconfig,
                 propagation_node=propagation_node,
-                timeout=args.timeout,
             )
         finally:
             if parsed.tmp_dir:
